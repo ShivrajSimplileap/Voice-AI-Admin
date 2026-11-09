@@ -19,6 +19,8 @@ import {
   useInterval,
   useLoad,
   useQueryState,
+  fmtMoney,
+  fmtTokens,
   type Column,
 } from '../components/data';
 
@@ -91,6 +93,7 @@ function AllCalls({
     },
     { key: 'status', label: 'Status', render: (c) => <CallStatusBadge status={c.status} /> },
     { key: 'dur', label: 'Length', align: 'right', render: (c) => fmtDuration(c.durationSec) },
+    { key: 'cost', label: 'Cost', align: 'right', render: (c) => (c.cost ? <span className="text-ink-2">{c.cost.toLocaleString('en-IN', { maximumFractionDigits: c.cost < 1 ? 4 : 2 })}</span> : <span className="text-muted">—</span>) },
     { key: 'outcome', label: 'Outcome', render: (c) => outcomeLabel(c.outcome) },
     {
       key: 'issues',
@@ -278,6 +281,12 @@ export function CallDetailPage({ id }: { id: string }) {
                       ['Recording', c.recording ? 'Saved' : c.recordingStatus === 'failed' ? 'Failed' : 'None'],
                       ['Summary', c.analysisStatus === 'failed' ? 'Failed' : c.analysisStatus],
                       ['Provider call id', c.providerCallId ?? '—'],
+                      [
+                        'Cost',
+                        c.cost.total
+                          ? `${fmtMoney(c.cost.total, c.currency)} (phone ${fmtMoney(c.cost.phone, c.currency)} · AI ${fmtMoney(c.cost.ai, c.currency)}, ${fmtTokens(c.cost.tokens)} tokens)`
+                          : '—',
+                      ],
                     ] as [string, string][]
                   ).map(([k, v]) => (
                     <div key={k} className="flex justify-between gap-4 rounded-xl bg-soft px-3.5 py-2">

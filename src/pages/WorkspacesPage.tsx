@@ -5,6 +5,7 @@ import { Link, navigate, useTitle } from '../router';
 import { Alert, Badge, Button, Card, PageHeader, cx, fullTime, timeAgo } from '../components/ui';
 import { useAdmin } from '../session';
 import { PauseModal, WorkspaceControls } from './WorkspaceControls';
+import { WorkspacePlan } from './WorkspacePlan';
 import { StatTile } from '../components/charts';
 import {
   CallStatusBadge,
@@ -49,6 +50,21 @@ export function WorkspacesPage() {
         </div>
       ),
     },
+    {
+      key: 'plan',
+      label: 'Plan',
+      render: (o) =>
+        o.plan ? (
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+            {o.plan}
+            {o.planStatus === 'trialing' ? (
+              <Badge tone={o.trialEndsAt && new Date(o.trialEndsAt) <= new Date() ? 'bad' : 'blue'}>{o.trialEndsAt && new Date(o.trialEndsAt) <= new Date() ? 'Trial ended' : 'Trial'}</Badge>
+            ) : null}
+          </span>
+        ) : (
+          <span className="text-muted">—</span>
+        ),
+    },
     { key: 'members', label: 'Members', sort: 'members', align: 'right', render: (o) => fmtNum(o.members) },
     { key: 'calls', label: 'Calls 30d', sort: 'calls30d', align: 'right', render: (o) => fmtNum(o.calls30d) },
     { key: 'minutes', label: 'Minutes 30d', sort: 'minutes30d', align: 'right', render: (o) => fmtNum(o.minutes30d) },
@@ -88,7 +104,8 @@ export function WorkspacesPage() {
 // ---------------------------------------------------------------------------
 // Detail
 // ---------------------------------------------------------------------------
-const TABS = ['Overview', 'Controls', 'Members', 'Agents', 'Campaigns', 'Numbers', 'Calls', 'Activity'] as const;
+const TABS = ['Overview', 'Controls', 'Plan', 'Members', 'Agents', 'Campaigns', 'Numbers', 'Calls', 'Activity'] as const;
+const TAB_LABEL: Partial<Record<Tab, string>> = { Plan: 'Plan & usage' };
 type Tab = (typeof TABS)[number];
 
 const yes = (on: boolean, label = on ? 'On' : 'Off') => <Badge tone={on ? 'good' : 'neutral'}>{label}</Badge>;
@@ -96,7 +113,11 @@ const yes = (on: boolean, label = on ? 'On' : 'Off') => <Badge tone={on ? 'good'
 export function WorkspaceDetailPage({ id }: { id: string }) {
   const state = useLoad(() => api.org(id), [id]);
   useTitle(state.data?.name ?? 'Workspace');
-  const [tab, setTab] = useState<Tab>('Overview');
+  // ?tab=Plan opens a tab directly (links from the Usage page).
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = new URLSearchParams(window.location.search).get('tab');
+    return (TABS as readonly string[]).includes(t ?? '') ? (t as Tab) : 'Overview';
+  });
   return (
     <>
       <Link to="/workspaces" className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted hover:text-ink">
@@ -125,12 +146,13 @@ export function WorkspaceDetailPage({ id }: { id: string }) {
                   onClick={() => setTab(t)}
                   className={cx('h-9 shrink-0 rounded-full px-4 text-sm font-semibold transition', tab === t ? 'bg-ink text-white' : 'text-ink-2 hover:bg-soft')}
                 >
-                  {t}
+                  {TAB_LABEL[t] ?? t}
                   {t === 'Members' ? <span className="ml-1.5 opacity-60">{o.members.filter((m) => m.isActive).length}</span> : null}
                 </button>
               ))}
             </div>
             {tab === 'Overview' ? <OrgOverview o={o} /> : null}
+            {tab === 'Plan' ? <WorkspacePlan orgId={o.id} /> : null}
             {tab === 'Controls' ? <WorkspaceControls key={o.status + JSON.stringify(o.features)} o={o} onChanged={state.reload} /> : null}
             {tab === 'Members' ? <OrgMembers o={o} /> : null}
             {tab === 'Agents' ? <OrgAgents o={o} /> : null}

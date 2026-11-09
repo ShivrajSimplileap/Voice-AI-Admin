@@ -153,7 +153,8 @@ export const api = {
   user: (id: string) => call<UserDetail>('GET', `/users/${id}`),
   calls: (params: Params) => call<Page<CallRow>>('GET', `/calls${qs(params)}`),
   liveCalls: () => call<{ data: LiveCall[] }>('GET', '/calls/live'),
-  callDetail: (id: string) => call<CallRow & { metadata: Record<string, unknown>; providerCallId: string | null }>('GET', `/calls/${id}`),
+  callDetail: (id: string) =>
+    call<CallRow & { metadata: Record<string, unknown>; providerCallId: string | null; currency: string; cost: { phone: number; ai: number; total: number; minutes: number; tokens: number } }>('GET', `/calls/${id}`),
   callTranscript: (id: string) =>
     call<{ transcript: { seq: number; speaker: 'agent' | 'caller'; text: string; offsetMs: number; interrupted: boolean }[]; summary: string | null; nextStep: string | null; hasTranscript: boolean }>(
       'GET',
@@ -183,7 +184,145 @@ export const api = {
   endCall: (id: string) => call<{ ok: true; wasRinging: boolean }>('POST', `/calls/${id}/end`),
   userAction: (id: string, action: 'disable' | 'enable' | 'sign-out' | 'reset-two-step' | 'resend-verification') =>
     call<{ ok: true; keycloak?: 'done' | 'failed' | 'skipped'; removed?: number }>('POST', `/users/${id}/${action}`),
+
+  // Phase 4: usage and plans.
+  usage: (period: UsagePeriod) => call<UsageReport>('GET', `/usage${qs({ period, tz: Intl.DateTimeFormat().resolvedOptions().timeZone })}`),
+  usageAlerts: () => call<{ recent: UsageAlert[] }>('GET', '/usage/alerts'),
+  exportUsage: async (period: UsagePeriod) => {
+    const res = await send('GET', `/usage/export${qs({ period, tz: Intl.DateTimeFormat().resolvedOptions().timeZone })}`);
+    const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'usage.csv';
+    return { blob: await res.blob(), name };
+  },
+  rates: () => call<Rates & { isDefault: boolean }>('GET', '/rates'),
+  setRates: (rates: Rates) => call<Rates & { isDefault: boolean }>('PUT', '/rates', rates),
+  plans: () => call<{ data: Plan[]; unplanned: number }>('GET', '/plans'),
+  createPlan: (body: PlanInput) => call<Plan>('POST', '/plans', body),
+  updatePlan: (id: string, body: Partial<PlanInput>) => call<Plan>('PATCH', `/plans/${id}`, body),
+  archivePlan: (id: string, archived: boolean) => call<Plan>('POST', `/plans/${id}/${archived ? 'archive' : 'restore'}`),
+  orgPlan: (id: string) => call<OrgPlan>('GET', `/orgs/${id}/plan`),
+  setOrgPlan: (id: string, body: OrgPlanInput) => call<OrgPlan>('PUT', `/orgs/${id}/plan`, body),
 };
+
+// ---------------------------------------------------------------------------
+// Phase 4 types
+// ---------------------------------------------------------------------------
+export type UsagePeriod = 'this_month' | 'last_month' | '30d';
+export type LimitKey = 'minutesPerMonth' | 'seats' | 'numbers' | 'agents' | 'activeCampaigns' | 'storageMb';
+export type PlanLimits = Partial<Record<LimitKey, number>>;
+export type PlanStatus = 'trialing' | 'active';
+
+export interface Plan {
+  id: string;
+  name: string;
+  description: string;
+  priceMonthly: number;
+  limits: PlanLimits;
+  trialDays: number;
+  isDefault: boolean;
+  archived: boolean;
+  createdAt: string;
+  workspaces: number;
+  trialing: number;
+}
+
+export interface PlanInput {
+  name: string;
+  description: string;
+  priceMonthly: number;
+  limits: Partial<Record<LimitKey, number | null>>;
+  trialDays: number;
+  isDefault: boolean;
+}
+
+export interface OrgPlan {
+  plan: { id: string; name: string; priceMonthly: number; limits: PlanLimits } | null;
+  status: PlanStatus | null;
+  trialEndsAt: string | null;
+  overrides: PlanLimits;
+  limits: PlanLimits;
+  usage: Record<LimitKey, number>;
+  cost?: OrgMonthCost | null;
+}
+
+export interface OrgMonthCost {
+  currency: string;
+  from: string;
+  minutes: number;
+  calls: number;
+  tokens: number;
+  phoneCost: number;
+  aiCost: number;
+  numbersCost: number;
+  cost: number;
+  byKind: { kind: UsageKind; total: number; cost: number }[];
+}
+
+export interface OrgPlanInput {
+  planId: string | null;
+  status?: PlanStatus;
+  trialEndsAt?: string | null;
+  overrides?: Partial<Record<Exclude<LimitKey, 'numbers'>, number | null>>;
+}
+
+export type UsageKind = 'phone_live' | 'browser_live' | 'analysis' | 'transcription' | 'embedding';
+
+export interface TokenRates {
+  textIn: number;
+  audioIn: number;
+  textOut: number;
+  audioOut: number;
+}
+
+export interface Rates {
+  currency: string;
+  phonePerMinute: Record<string, number>;
+  numberPerMonth: number;
+  ai: Record<'live' | 'analysis' | 'transcription' | 'embedding', TokenRates>;
+}
+
+export interface UsageWorkspace {
+  id: string;
+  name: string;
+  status: 'active' | 'suspended';
+  plan: string | null;
+  planStatus: PlanStatus | null;
+  trialEndsAt: string | null;
+  minutes: number;
+  calls: number;
+  monthMinutes: number;
+  minuteLimit: number | null;
+  tokens: number;
+  numbers: number;
+  phoneCost: number;
+  aiCost: number;
+  numbersCost: number;
+  cost: number;
+  revenue: number;
+  margin: number;
+}
+
+export interface UsageReport {
+  period: { key: UsagePeriod; from: string; to: string };
+  currency: string;
+  ratesSet: boolean;
+  totals: { minutes: number; calls: number; tokens: number; phoneCost: number; aiCost: number; numbersCost: number; cost: number; revenue: number; margin: number; paying: number; trialing: number };
+  unattributed: { tokens: number; aiCost: number };
+  byKind: { kind: UsageKind; tokens: TokenRates; total: number; cost: number }[];
+  byProvider: { provider: string; minutes: number; cost: number }[];
+  daily: { day: string; minutes: number; phoneCost: number; aiCost: number; cost: number }[];
+  workspaces: UsageWorkspace[];
+}
+
+export interface UsageAlert {
+  id: string;
+  orgId: string;
+  orgName: string;
+  metric: 'minutes' | 'trial';
+  level: string;
+  period: string;
+  sentTo: number;
+  createdAt: string;
+}
 
 export interface OrgFeatures {
   outboundCalls: boolean;
@@ -230,7 +369,7 @@ export interface Overview {
   series: { day: string; calls: number; minutes: number; connected: number; workspaces: number }[];
   topWorkspaces: { id: string; name: string; calls: number; minutes: number; connected: number; connectRate: number }[];
   dropping: { id: string; name: string; thisWeek: number; lastWeek: number; change: number }[];
-  alerts: Record<'stuckCalls' | 'failedAnalyses7d' | 'failedRecordings7d' | 'failedKnowledgeFiles' | 'failedImports7d' | 'failedDigests7d' | 'campaignErrors', number>;
+  alerts: Record<'stuckCalls' | 'failedAnalyses7d' | 'failedRecordings7d' | 'failedKnowledgeFiles' | 'failedImports7d' | 'failedDigests7d' | 'campaignErrors' | 'planBlocked', number>;
 }
 
 export interface OrgStats {
@@ -256,6 +395,9 @@ export interface OrgRow extends OrgStats {
   ssoEnabled: boolean;
   mfaRequired: boolean;
   status: 'active' | 'suspended';
+  plan: string | null;
+  planStatus: PlanStatus | null;
+  trialEndsAt: string | null;
 }
 
 export interface OrgDetail {
@@ -344,6 +486,8 @@ export interface CallRow {
   summary: string | null;
   sentiment: string | null;
   nextStep: string | null;
+  /** Phone minutes + AI for the call (list only). */
+  cost?: number;
 }
 
 export interface LiveCall {

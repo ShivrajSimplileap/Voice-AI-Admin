@@ -44,6 +44,13 @@ const ACTION_LABEL: Record<string, string> = {
   'user.signed_out': 'Signed a customer out everywhere',
   'user.two_step_reset': 'Reset a customer’s two-step verification',
   'user.verification_sent': 'Resent a verification email',
+  'plan.created': 'Created a plan',
+  'plan.updated': 'Edited a plan',
+  'plan.archived': 'Archived a plan',
+  'plan.restored': 'Restored a plan',
+  'org.plan_changed': 'Changed a workspace’s plan',
+  'rates.updated': 'Changed the cost rates',
+  'usage.exported': 'Exported usage',
 };
 const WARN_EXTRA = ['org.suspended', 'dialing.stopped', 'user.disabled'];
 const WARN = new Set(['admin.sign_in_failed', 'admin.locked', 'admin.disabled']);
@@ -64,6 +71,8 @@ function detailText(e: AuditEvent): string | null {
   if (e.action === 'org.suspended' || e.action === 'dialing.stopped') return d.reason ? String(d.reason) : null;
   if (e.action === 'campaigns.paused_all') return `${d.paused} paused`;
   if (e.action === 'org.owner_changed') return `now ${d.owner}`;
+  if (e.action === 'org.plan_changed') return d.plan ? String(d.plan) : 'no plan';
+  if (e.action === 'usage.exported' && d.period) return String(d.period).replace('_', ' ');
   if (e.action === 'org.features_changed' && d.changes)
     return Object.entries(d.changes as Record<string, { to: unknown }>)
       .map(([k, v]) => `${k} ${typeof v.to === 'boolean' ? (v.to ? 'on' : 'off') : v.to}`)

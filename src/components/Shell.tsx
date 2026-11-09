@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Activity, Building2, History, LayoutGrid, LogOut, Menu, Phone, PhoneCall, UserCog, Users, UsersRound, X } from 'lucide-react';
+import { Activity, Building2, History, Layers, LayoutGrid, LogOut, Menu, Phone, PhoneCall, UserCog, Users, UsersRound, Wallet, X } from 'lucide-react';
 import { api, ROLE_LABEL, type AdminRole } from '../api';
 import { Link, usePath } from '../router';
 import { useInterval, useLoad } from './data';
@@ -20,6 +20,8 @@ export const NAV: NavItem[] = [
   { to: '/users', label: 'Users', icon: <Users className="size-[18px]" />, roles: ALL },
   { to: '/calls', label: 'Calls', icon: <PhoneCall className="size-[18px]" />, roles: ALL },
   { to: '/numbers', label: 'Phone numbers', icon: <Phone className="size-[18px]" />, roles: ALL },
+  { to: '/usage', label: 'Usage and cost', icon: <Wallet className="size-[18px]" />, roles: ALL },
+  { to: '/plans', label: 'Plans', icon: <Layers className="size-[18px]" />, roles: ALL },
   { to: '/health', label: 'System health', icon: <Activity className="size-[18px]" />, roles: ALL },
   { to: '/admins', label: 'Admin team', icon: <UsersRound className="size-[18px]" />, roles: ['super_admin'] },
   { to: '/activity', label: 'Activity log', icon: <History className="size-[18px]" />, roles: ['super_admin', 'admin'] },

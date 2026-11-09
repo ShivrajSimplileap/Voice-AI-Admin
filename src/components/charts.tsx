@@ -19,12 +19,15 @@ function ticks(max: number, count = 4) {
   const mag = 10 ** Math.floor(Math.log10(raw));
   const step = [1, 2, 5, 10].map((m) => m * mag).find((s) => s >= raw) ?? raw;
   const out: number[] = [];
-  for (let v = 0; v <= max + step * 0.001; v += step) out.push(Math.round(v));
-  if (out[out.length - 1] < max) out.push(out[out.length - 1] + step);
+  // Round to the step's precision (cost charts have steps below 1).
+  const fix = (v: number) => Number(v.toFixed(Math.max(0, -Math.floor(Math.log10(step)))));
+  for (let i = 0; i * step <= max + step * 0.001; i++) out.push(fix(i * step));
+  if (out[out.length - 1] < max) out.push(fix(out[out.length - 1] + step));
   return out;
 }
 
 const compact = (n: number) => (n >= 10_000 ? `${Math.round(n / 1000)}K` : fmtNum(n));
+const plain = (n: number) => fmtNum(n);
 
 export function ColumnChart({
   title,
@@ -32,13 +35,19 @@ export function ColumnChart({
   data,
   unit,
   formatX,
+  format = plain,
+  axisFormat = compact,
 }: {
   title: string;
   subtitle?: ReactNode;
   data: { x: string; y: number }[];
   unit: string;
   formatX: (x: string) => string;
+  /** How values read in the tooltip and table (e.g. money); the unit is then left out of the tooltip. */
+  format?: (n: number) => string;
+  axisFormat?: (n: number) => string;
 }) {
+  const custom = format !== plain;
   const [hover, setHover] = useState<number | null>(null);
   const [table, setTable] = useState(false);
   const titleId = useId();
@@ -82,7 +91,7 @@ export function ColumnChart({
               {data.map((d) => (
                 <tr key={d.x} className="border-t border-white">
                   <td className="px-4 py-1.5">{formatX(d.x)}</td>
-                  <td className="px-4 py-1.5 text-right tabular-nums">{fmtNum(d.y)}</td>
+                  <td className="px-4 py-1.5 text-right tabular-nums">{format(d.y)}</td>
                 </tr>
               ))}
             </tbody>
@@ -91,12 +100,12 @@ export function ColumnChart({
       ) : (
         <div className="relative mt-3">
           <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full" role="img" aria-labelledby={titleId} aria-describedby={`${titleId}-d`} onMouseLeave={() => setHover(null)}>
-            <desc id={`${titleId}-d`}>{`${fmtNum(total)} ${unit.toLowerCase()} over ${data.length} days; highest ${fmtNum(max)}.`}</desc>
+            <desc id={`${titleId}-d`}>{`${format(total)} ${unit.toLowerCase()} over ${data.length} days; highest ${format(max)}.`}</desc>
             {ys.map((t) => (
               <g key={t}>
                 <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke={GRID} strokeWidth={1} />
                 <text x={pad.l - 8} y={y(t)} dy="0.32em" textAnchor="end" fontSize={11} fill={AXIS_TEXT}>
-                  {compact(t)}
+                  {axisFormat(t)}
                 </text>
               </g>
             ))}
@@ -134,7 +143,8 @@ export function ColumnChart({
             >
               <div className="text-white/70">{formatX(data[hover].x)}</div>
               <div className="font-semibold tabular-nums">
-                {fmtNum(data[hover].y)} {unit.toLowerCase()}
+                {format(data[hover].y)}
+                {custom ? '' : ` ${unit.toLowerCase()}`}
               </div>
             </div>
           ) : null}

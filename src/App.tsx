@@ -10,6 +10,8 @@ import { UserDetailPage, UsersPage } from './pages/UsersPage';
 import { CallDetailPage, CallsPage } from './pages/CallsPage';
 import { NumbersPage } from './pages/NumbersPage';
 import { HealthPage } from './pages/HealthPage';
+import { UsagePage } from './pages/UsagePage';
+import { PlansPage } from './pages/PlansPage';
 import { Link, match, Redirect, usePath } from './router';
 import { SessionProvider, useSession } from './session';
 
@@ -27,6 +29,8 @@ const SIGNED_IN_PAGES: Partial<Record<string, () => React.JSX.Element>> = {
   '/users': UsersPage,
   '/calls': CallsPage,
   '/numbers': NumbersPage,
+  '/usage': UsagePage,
+  '/plans': PlansPage,
   '/health': HealthPage,
   '/admins': AdminsPage,
   '/activity': ActivityPage,

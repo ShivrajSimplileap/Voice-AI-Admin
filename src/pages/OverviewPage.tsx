@@ -15,6 +15,7 @@ const ALERTS: { key: keyof Overview['alerts']; label: string; to: string }[] = [
   { key: 'failedImports7d', label: 'Lead imports failed (7 days)', to: '/health' },
   { key: 'failedDigests7d', label: 'Email digests failed (7 days)', to: '/health' },
   { key: 'campaignErrors', label: 'Campaigns with an error', to: '/health' },
+  { key: 'planBlocked', label: 'Workspaces paused by their plan (trial over or minutes used up)', to: '/usage' },
 ];
 
 export function OverviewPage() {
@@ -73,7 +74,7 @@ export function OverviewPage() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="mt-1 text-sm text-muted">No stuck calls, failed summaries, imports, digests or campaign errors.</p>
+                  <p className="mt-1 text-sm text-muted">No stuck calls, failed summaries, imports, digests, campaign errors or workspaces paused by their plan.</p>
                 )}
               </Card>
 

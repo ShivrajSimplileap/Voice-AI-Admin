@@ -62,6 +62,20 @@ export function Loaded<T>({ state, children }: { state: { data: T | null; error:
 // Formatting
 // ---------------------------------------------------------------------------
 export const fmtNum = (n: number | null | undefined) => (n ?? 0).toLocaleString('en-IN');
+/** Money in the platform currency: cents, or four places for amounts under 1. */
+export function fmtMoney(n: number, currency: string) {
+  const small = n !== 0 && Math.abs(n) < 1;
+  try {
+    return n.toLocaleString('en-IN', { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: small ? 4 : 2 });
+  } catch {
+    return `${currency} ${n.toFixed(small ? 4 : 2)}`;
+  }
+}
+
+/** Big token counts: 1.2M, 34K. */
+export const fmtTokens = (n: number) =>
+  n >= 1_000_000 ? `${(n / 1_000_000).toLocaleString('en-IN', { maximumFractionDigits: 1 })}M` : n >= 10_000 ? `${Math.round(n / 1000)}K` : fmtNum(n);
+
 export const fmtPct = (n: number) => `${n.toLocaleString('en-IN', { maximumFractionDigits: 1 })}%`;
 
 export function fmtDuration(sec: number) {
