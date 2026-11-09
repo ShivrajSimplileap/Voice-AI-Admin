@@ -116,6 +116,30 @@ export function SelectField({
   );
 }
 
+/** An on/off switch with a label and a line of help. */
+export function Toggle({ label, hint, checked, onChange, disabled }: { label: string; hint?: ReactNode; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+  const id = useId();
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-2xl bg-soft px-4 py-3">
+      <label htmlFor={id} className="min-w-0 cursor-pointer">
+        <span className="block text-sm font-semibold">{label}</span>
+        {hint ? <span className="block text-[13px] text-muted">{hint}</span> : null}
+      </label>
+      <button
+        id={id}
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={cx('relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition disabled:opacity-50', checked ? 'bg-good' : 'bg-muted-2')}
+      >
+        <span className={cx('absolute top-0.5 size-5 rounded-full bg-white shadow transition-all', checked ? 'left-[22px]' : 'left-0.5')} />
+      </button>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Surfaces and feedback
 // ---------------------------------------------------------------------------

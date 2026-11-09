@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Activity, Building2, History, LayoutGrid, LogOut, Menu, Phone, PhoneCall, UserCog, Users, UsersRound, X } from 'lucide-react';
-import { ROLE_LABEL, type AdminRole } from '../api';
+import { api, ROLE_LABEL, type AdminRole } from '../api';
 import { Link, usePath } from '../router';
+import { useInterval, useLoad } from './data';
 import { useAdmin, useSession } from '../session';
 import { Badge, cx, Logo } from './ui';
 
@@ -102,7 +103,35 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       ) : null}
 
-      <main className="min-w-0 flex-1 px-4 pt-2 pb-10 lg:px-2 lg:pt-4">{children}</main>
+      <main className="min-w-0 flex-1 px-4 pt-2 pb-10 lg:px-2 lg:pt-4">
+        <DialingBanner />
+        {children}
+      </main>
+    </div>
+  );
+}
+
+/** While all dialing is stopped, every page says so. */
+function DialingBanner() {
+  const state = useLoad(() => api.dialing(), []);
+  useInterval(() => void state.reload(), 30_000);
+  // Changed on the Health page: refresh straight away.
+  useEffect(() => {
+    const on = () => void state.reload();
+    window.addEventListener('admin:dialing-changed', on);
+    return () => window.removeEventListener('admin:dialing-changed', on);
+  }, [state.reload]);
+  if (!state.data?.paused) return null;
+  return (
+    <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-bad px-4 py-3 text-sm text-white">
+      <span>
+        <strong>All dialing is stopped</strong>
+        {state.data.reason ? ` · ${state.data.reason}` : ''}
+        {state.data.by ? <span className="text-white/75"> · by {state.data.by}</span> : null}
+      </span>
+      <Link to="/health" className="rounded-full bg-white/15 px-3 py-1 font-semibold hover:bg-white/25">
+        Manage
+      </Link>
     </div>
   );
 }

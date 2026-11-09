@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Eye, Lock, RefreshCw, RotateCw } from 'lucide-react';
+import { ArrowLeft, Eye, Lock, PhoneOff, RefreshCw, RotateCw } from 'lucide-react';
 import { api, type CallRow, type LiveCall } from '../api';
 import { Link, navigate, useTitle } from '../router';
 import { useAdmin } from '../session';
-import { Alert, Badge, Button, Card, PageHeader, Spinner, cx, fullTime, timeAgo } from '../components/ui';
+import { Alert, Badge, Button, Card, Confirm, PageHeader, Spinner, cx, fullTime, timeAgo } from '../components/ui';
 import {
   CallStatusBadge,
   FilterBar,
@@ -134,6 +134,41 @@ function AllCalls({
   );
 }
 
+/** "End call" with a confirmation: hangs up through the phone provider. */
+function EndCallButton({ call, onEnded, size = 'sm' }: { call: { id: string; org: { name: string }; direction: string }; onEnded: () => Promise<void> | void; size?: 'sm' | 'md' }) {
+  const canAct = useAdmin().role !== 'viewer';
+  const [open, setOpen] = useState(false);
+  if (!canAct || call.direction === 'playground') return null;
+  return (
+    <>
+      <Button
+        size={size}
+        variant="danger"
+        icon={<PhoneOff className="size-3.5" />}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(true);
+        }}
+      >
+        End call
+      </Button>
+      {open ? (
+        <Confirm
+          title="End this call?"
+          body={<p>The phone provider hangs up now, mid-conversation. {call.org.name} sees it in its audit log as ended by the platform.</p>}
+          confirmLabel="End call"
+          danger
+          onConfirm={async () => {
+            await api.endCall(call.id);
+            await onEnded();
+          }}
+          onClose={() => setOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+}
+
 function LiveCalls() {
   const state = useLoad(() => api.liveCalls(), []);
   useInterval(() => void state.reload(), 5000);
@@ -147,6 +182,7 @@ function LiveCalls() {
     { key: 'number', label: 'Number / person', render: (c) => <span className="tabular-nums">{(c.direction === 'inbound' ? c.fromNumber : c.toNumber) ?? c.person ?? '—'}</span> },
     { key: 'turns', label: 'Lines so far', align: 'right', render: (c) => fmtNum(c.turns) },
     { key: 'last', label: 'Last activity', render: (c) => (c.stuck ? <Badge tone="bad">Stuck · {timeAgo(c.lastActivityAt)}</Badge> : <span className="text-muted">{timeAgo(c.lastActivityAt)}</span>) },
+    { key: 'end', label: '', render: (c) => <EndCallButton call={c} onEnded={() => state.reload()} /> },
   ];
   return (
     <>
@@ -155,7 +191,7 @@ function LiveCalls() {
           <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent opacity-60" />
           <span className="relative inline-flex size-2 rounded-full bg-accent" />
         </span>
-        Updates every 5 seconds. Ending a call from here comes in Phase 3.
+        Updates every 5 seconds. Playground sessions end from the browser that runs them.
       </div>
       <Loaded state={state}>
         {(d) => <Table rows={d.data} columns={columns} onRow={(c) => navigate(`/calls/${c.id}`)} empty="No calls right now." />}
@@ -200,9 +236,19 @@ export function CallDetailPage({ id }: { id: string }) {
               }
               actions={
                 c.status === 'in_progress' ? (
-                  <Button variant="soft" size="sm" icon={<RefreshCw className="size-3.5" />} onClick={() => void state.reload()}>
-                    Refresh
-                  </Button>
+                  <>
+                    <Button variant="soft" size="sm" icon={<RefreshCw className="size-3.5" />} onClick={() => void state.reload()}>
+                      Refresh
+                    </Button>
+                    <EndCallButton
+                      call={c}
+                      onEnded={async () => {
+                        setNotice({ tone: 'good', text: 'Call ended.' });
+                        // The provider closes it a moment later.
+                        setTimeout(() => void state.reload(), 2000);
+                      }}
+                    />
+                  </>
                 ) : null
               }
             />

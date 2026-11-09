@@ -1,12 +1,15 @@
 import { useState, type ReactNode } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Ban } from 'lucide-react';
 import { api, type OrgDetail, type OrgRow } from '../api';
 import { Link, navigate, useTitle } from '../router';
-import { Badge, Card, PageHeader, cx, fullTime, timeAgo } from '../components/ui';
+import { Alert, Badge, Button, Card, PageHeader, cx, fullTime, timeAgo } from '../components/ui';
+import { useAdmin } from '../session';
+import { PauseModal, WorkspaceControls } from './WorkspaceControls';
 import { StatTile } from '../components/charts';
 import {
   CallStatusBadge,
   FilterBar,
+  FilterSelect,
   Loaded,
   Pager,
   SearchBox,
@@ -28,8 +31,8 @@ import {
 // ---------------------------------------------------------------------------
 export function WorkspacesPage() {
   useTitle('Workspaces');
-  const [f, set] = useQueryState({ q: '', sort: 'created', dir: 'desc', page: '1' });
-  const state = useLoad(() => api.orgs({ q: f.q, sort: f.sort, dir: f.dir, page: f.page, pageSize: 50 }), [f.q, f.sort, f.dir, f.page]);
+  const [f, set] = useQueryState({ q: '', status: '', sort: 'created', dir: 'desc', page: '1' });
+  const state = useLoad(() => api.orgs({ q: f.q, status: f.status, sort: f.sort, dir: f.dir, page: f.page, pageSize: 50 }), [f.q, f.status, f.sort, f.dir, f.page]);
 
   const columns: Column<OrgRow>[] = [
     {
@@ -38,7 +41,10 @@ export function WorkspacesPage() {
       sort: 'name',
       render: (o) => (
         <div>
-          <div className="font-semibold">{o.name}</div>
+          <div className="flex items-center gap-2 font-semibold">
+            {o.name}
+            {o.status === 'suspended' ? <Badge tone="bad">Suspended</Badge> : null}
+          </div>
           <div className="text-[12px] text-muted">{o.slug}</div>
         </div>
       ),
@@ -58,6 +64,7 @@ export function WorkspacesPage() {
       <PageHeader title="Workspaces" subtitle="Every customer workspace on the platform." />
       <FilterBar>
         <SearchBox value={f.q} onChange={(q) => set({ q, page: '1' })} placeholder="Search by name or slug" />
+        <FilterSelect label="Status" value={f.status} onChange={(status) => set({ status, page: '1' })} options={[{ value: '', label: 'Any status' }, { value: 'active', label: 'Active' }, { value: 'suspended', label: 'Suspended' }]} />
       </FilterBar>
       <Loaded state={state}>
         {(page) => (
@@ -81,7 +88,7 @@ export function WorkspacesPage() {
 // ---------------------------------------------------------------------------
 // Detail
 // ---------------------------------------------------------------------------
-const TABS = ['Overview', 'Members', 'Agents', 'Campaigns', 'Numbers', 'Calls', 'Activity'] as const;
+const TABS = ['Overview', 'Controls', 'Members', 'Agents', 'Campaigns', 'Numbers', 'Calls', 'Activity'] as const;
 type Tab = (typeof TABS)[number];
 
 const yes = (on: boolean, label = on ? 'On' : 'Off') => <Badge tone={on ? 'good' : 'neutral'}>{label}</Badge>;
@@ -99,6 +106,16 @@ export function WorkspaceDetailPage({ id }: { id: string }) {
         {(o) => (
           <>
             <PageHeader title={o.name} subtitle={`${o.slug} · created ${fullTime(o.createdAt)} · ${o.timezone}`} />
+            {o.status === 'suspended' ? (
+              <div className="mb-4">
+                <Alert>
+                  <span className="inline-flex items-center gap-1.5 font-semibold">
+                    <Ban className="size-3.5" /> Suspended {o.suspendedAt ? timeAgo(o.suspendedAt).toLowerCase() : ''}
+                  </span>{' '}
+                  · its people can’t use the CRM and nothing runs. Restore it on the Controls tab.
+                </Alert>
+              </div>
+            ) : null}
             <div className="mb-5 flex gap-1 overflow-x-auto rounded-full bg-surface p-1 shadow-card" role="tablist">
               {TABS.map((t) => (
                 <button
@@ -114,9 +131,10 @@ export function WorkspaceDetailPage({ id }: { id: string }) {
               ))}
             </div>
             {tab === 'Overview' ? <OrgOverview o={o} /> : null}
+            {tab === 'Controls' ? <WorkspaceControls key={o.status + JSON.stringify(o.features)} o={o} onChanged={state.reload} /> : null}
             {tab === 'Members' ? <OrgMembers o={o} /> : null}
             {tab === 'Agents' ? <OrgAgents o={o} /> : null}
-            {tab === 'Campaigns' ? <OrgCampaigns o={o} /> : null}
+            {tab === 'Campaigns' ? <OrgCampaigns o={o} onChanged={state.reload} /> : null}
             {tab === 'Numbers' ? <OrgNumbers o={o} /> : null}
             {tab === 'Calls' ? <OrgCalls o={o} /> : null}
             {tab === 'Activity' ? <OrgActivity o={o} /> : null}
@@ -246,8 +264,11 @@ function OrgAgents({ o }: { o: OrgDetail }) {
 
 const CAMPAIGN_TONE: Record<string, 'accent' | 'good' | 'neutral' | 'blue'> = { running: 'accent', completed: 'good', paused: 'blue' };
 
-function OrgCampaigns({ o }: { o: OrgDetail }) {
+function OrgCampaigns({ o, onChanged }: { o: OrgDetail; onChanged: () => Promise<void> }) {
+  const canAct = useAdmin().role !== 'viewer';
+  const [pausing, setPausing] = useState<OrgDetail['campaigns'][number] | null>(null);
   return (
+    <>
     <Table
       rows={o.campaigns}
       empty="No campaigns."
@@ -268,8 +289,29 @@ function OrgCampaigns({ o }: { o: OrgDetail }) {
         { key: 'connected', label: 'Connected', align: 'right', render: (c) => fmtNum(c.connected) },
         { key: 'converted', label: 'Converted', align: 'right', render: (c) => fmtNum(c.converted) },
         { key: 'created', label: 'Created', render: (c) => <span className="text-muted">{timeAgo(c.createdAt)}</span> },
+        {
+          key: 'act',
+          label: '',
+          render: (c) =>
+            canAct && (c.status === 'running' || c.status === 'scheduled') ? (
+              <Button size="sm" variant="soft" onClick={() => setPausing(c)}>
+                Pause
+              </Button>
+            ) : null,
+        },
       ]}
     />
+    {pausing ? (
+      <PauseModal
+        title={`Pause “${pausing.name}”?`}
+        onClose={() => setPausing(null)}
+        onPause={async (reason) => {
+          await api.pauseCampaign(pausing.id, reason);
+          await onChanged();
+        }}
+      />
+    ) : null}
+    </>
   );
 }
 

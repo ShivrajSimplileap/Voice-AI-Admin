@@ -169,7 +169,36 @@ export const api = {
   closeStuckCalls: () => call<{ closed: number }>('POST', '/health/close-stuck-calls'),
   retryFailedAnalyses: () => call<{ queued: number }>('POST', '/health/retry-failed-analyses'),
   retryKnowledgeFile: (id: string) => call<{ ok: true }>('POST', `/knowledge/${id}/retry`),
+
+  // Phase 3: control
+  suspendOrg: (id: string, body: { reason: string; message?: string; endLiveCalls: boolean }) =>
+    call<{ ok: true; endedCalls: number }>('POST', `/orgs/${id}/suspend`, body),
+  restoreOrg: (id: string) => call<{ ok: true }>('POST', `/orgs/${id}/restore`),
+  setFeatures: (id: string, body: Partial<OrgFeatures>) => call<{ features: OrgFeatures }>('PATCH', `/orgs/${id}/features`, body),
+  pauseOrgCampaigns: (id: string, reason?: string) => call<{ paused: number }>('POST', `/orgs/${id}/pause-campaigns`, { reason }),
+  changeOwner: (id: string, userId: string) => call<{ owner: string; previous: string[] }>('POST', `/orgs/${id}/owner`, { userId }),
+  pauseCampaign: (id: string, reason?: string) => call<{ ok: true }>('POST', `/campaigns/${id}/pause`, { reason }),
+  dialing: () => call<DialingSwitch>('GET', '/dialing'),
+  setDialing: (paused: boolean, reason?: string) => call<DialingSwitch>('PUT', '/dialing', { paused, reason }),
+  endCall: (id: string) => call<{ ok: true; wasRinging: boolean }>('POST', `/calls/${id}/end`),
+  userAction: (id: string, action: 'disable' | 'enable' | 'sign-out' | 'reset-two-step' | 'resend-verification') =>
+    call<{ ok: true; keycloak?: 'done' | 'failed' | 'skipped'; removed?: number }>('POST', `/users/${id}/${action}`),
 };
+
+export interface OrgFeatures {
+  outboundCalls: boolean;
+  inboundCalls: boolean;
+  browserVoice: boolean;
+  meetings: boolean;
+  numberLimit: number;
+}
+
+export interface DialingSwitch {
+  paused: boolean;
+  reason?: string;
+  at?: string;
+  by?: string;
+}
 
 // ---------------------------------------------------------------------------
 // Phase 2 types
@@ -226,12 +255,17 @@ export interface OrgRow extends OrgStats {
   timezone: string;
   ssoEnabled: boolean;
   mfaRequired: boolean;
+  status: 'active' | 'suspended';
 }
 
 export interface OrgDetail {
   id: string;
   name: string;
   slug: string;
+  status: 'active' | 'suspended';
+  suspendedAt: string | null;
+  suspendedMessage: string | null;
+  features: OrgFeatures;
   createdAt: string;
   timezone: string;
   defaultLanguage: string;

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle2, CircleSlash, RefreshCw, RotateCw, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CircleSlash, OctagonX, PlayCircle, RefreshCw, RotateCw, XCircle } from 'lucide-react';
 import { api, type Health } from '../api';
 import { Link, useTitle } from '../router';
 import { useAdmin } from '../session';
-import { Alert, Badge, Button, Card, Confirm, PageHeader, cx, fullTime, timeAgo } from '../components/ui';
+import { Alert, Badge, Button, Card, Confirm, Modal, PageHeader, TextField, cx, fullTime, timeAgo } from '../components/ui';
 import { Loaded, fmtNum, useInterval, useLoad } from '../components/data';
 
 const STATUS = {
@@ -63,6 +63,7 @@ export function HealthPage() {
           <Alert tone={notice.tone}>{notice.text}</Alert>
         </div>
       ) : null}
+      <DialingCard canSwitch={admin.role === 'super_admin'} onNotice={setNotice} />
       <Loaded state={state}>
         {(h) => {
           const stuck = h.workers.find((w) => w.key === 'stuck')?.waiting ?? 0;
@@ -233,5 +234,94 @@ export function HealthPage() {
         />
       ) : null}
     </>
+  );
+}
+
+/** The platform-wide emergency stop for outbound calls (super admins switch it). */
+function DialingCard({ canSwitch, onNotice }: { canSwitch: boolean; onNotice: (n: { tone: 'good' | 'bad'; text: string }) => void }) {
+  const state = useLoad(() => api.dialing(), []);
+  const [dialog, setDialog] = useState<'stop' | 'resume' | null>(null);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const d = state.data;
+  const changed = async () => {
+    await state.reload();
+    window.dispatchEvent(new Event('admin:dialing-changed'));
+  };
+  if (!d) return null;
+  return (
+    <Card className={cx('mb-6 p-5', d.paused && 'ring-2 ring-bad/40')}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="max-w-2xl">
+          <h2 className="text-[15px] font-bold">{d.paused ? 'All dialing is stopped' : 'Emergency stop: all dialing'}</h2>
+          <p className="mt-1 text-sm text-muted">
+            {d.paused
+              ? `Since ${d.at ? fullTime(d.at) : 'earlier'}${d.by ? ` by ${d.by}` : ''}${d.reason ? `: ${d.reason}` : ''}. No campaign, callback or hand-placed call goes out in any workspace; campaigns stay “running” and continue when resumed. Inbound calls still work.`
+              : 'Stops every outbound call on the platform at once (campaigns, AI callbacks, hand-placed calls), e.g. during a provider incident. Calls already in progress continue.'}
+          </p>
+          {!canSwitch ? <p className="mt-1 text-[13px] text-muted">Only super admins can switch this.</p> : null}
+        </div>
+        {canSwitch ? (
+          d.paused ? (
+            <Button icon={<PlayCircle className="size-4" />} onClick={() => setDialog('resume')}>
+              Resume dialing
+            </Button>
+          ) : (
+            <Button variant="danger" icon={<OctagonX className="size-4" />} onClick={() => setDialog('stop')}>
+              Stop all dialing
+            </Button>
+          )
+        ) : null}
+      </div>
+      {dialog === 'stop' ? (
+        <Modal title="Stop all dialing?" onClose={() => setDialog(null)}>
+          <form
+            className="space-y-4"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setBusy(true);
+              setError(null);
+              try {
+                await api.setDialing(true, reason);
+                setDialog(null);
+                setReason('');
+                onNotice({ tone: 'good', text: 'All dialing is stopped.' });
+                await changed();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : 'Couldn’t stop dialing.');
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <Alert tone="info">Every workspace’s outbound calls stop within a few seconds. Calls in progress continue.</Alert>
+            {error ? <Alert>{error}</Alert> : null}
+            <TextField label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Sinch outage" required maxLength={300} />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={() => setDialog(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="danger" busy={busy} disabled={!reason.trim()}>
+                Stop all dialing
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      ) : null}
+      {dialog === 'resume' ? (
+        <Confirm
+          title="Resume dialing?"
+          body={<p>Running campaigns and due callbacks start calling again in every workspace.</p>}
+          confirmLabel="Resume"
+          onConfirm={async () => {
+            await api.setDialing(false);
+            onNotice({ tone: 'good', text: 'Dialing resumed.' });
+            await changed();
+          }}
+          onClose={() => setDialog(null)}
+        />
+      ) : null}
+    </Card>
   );
 }

@@ -1,7 +1,9 @@
-import { ArrowLeft } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, LogOut, MailCheck, ShieldOff, UserCheck, UserX } from 'lucide-react';
 import { api, type UserRow } from '../api';
 import { Link, navigate, useTitle } from '../router';
-import { Badge, Card, PageHeader, cx, fullTime, timeAgo } from '../components/ui';
+import { Alert, Badge, Button, Card, Confirm, PageHeader, cx, fullTime, timeAgo } from '../components/ui';
+import { useAdmin } from '../session';
 import { StatTile } from '../components/charts';
 import { FilterBar, FilterSelect, Loaded, Pager, SearchBox, Table, fmtNum, useLoad, useQueryState, workspaceRole, type Column } from '../components/data';
 
@@ -148,10 +150,97 @@ export function UserDetailPage({ id }: { id: string }) {
                 )}
               </Card>
             </div>
-            <p className="mt-4 text-[13px] text-muted">Disabling, signing out and other actions on customer accounts come in Phase 3.</p>
+            <UserActions user={u} onChanged={state.reload} />
           </>
         )}
       </Loaded>
     </>
+  );
+}
+
+type Action = 'disable' | 'enable' | 'sign-out' | 'reset-two-step' | 'resend-verification';
+
+const ACTIONS: Record<Action, { title: string; body: string; label: string; done: string; danger?: boolean }> = {
+  disable: {
+    title: 'Disable this account?',
+    body: 'They can’t sign in to any workspace, and every session ends (a Keycloak sign-in can last a few more minutes until its token expires). Their data stays.',
+    label: 'Disable account',
+    done: 'Account disabled.',
+    danger: true,
+  },
+  enable: { title: 'Enable this account?', body: 'They can sign in again with their usual method.', label: 'Enable account', done: 'Account enabled.' },
+  'sign-out': {
+    title: 'Sign them out everywhere?',
+    body: 'Every session ends; they can sign in again straight away. Useful after a lost device.',
+    label: 'Sign out',
+    done: 'Signed out everywhere.',
+  },
+  'reset-two-step': {
+    title: 'Reset two-step verification?',
+    body: 'Their authenticator app is removed. If a workspace requires two-step verification, they set up a new one at their next sign-in. Only do this once you’re sure it’s really them.',
+    label: 'Reset',
+    done: 'Two-step verification reset.',
+    danger: true,
+  },
+  'resend-verification': { title: 'Resend the verification email?', body: 'Keycloak emails them a new “verify your email” link.', label: 'Send', done: 'Verification email sent.' },
+};
+
+function UserActions({ user, onChanged }: { user: { id: string; isActive: boolean; authProvider: string }; onChanged: () => Promise<void> }) {
+  const canAct = useAdmin().role !== 'viewer';
+  const [action, setAction] = useState<Action | null>(null);
+  const [notice, setNotice] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null);
+  if (!canAct) return null;
+  const keycloak = user.authProvider === 'keycloak';
+  return (
+    <Card className="mt-4 p-5">
+      <h3 className="text-[15px] font-bold">Account actions</h3>
+      <p className="mt-1 text-sm text-muted">Each one is recorded in the activity log.</p>
+      {notice ? (
+        <div className="mt-3">
+          <Alert tone={notice.tone}>{notice.text}</Alert>
+        </div>
+      ) : null}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {user.isActive ? (
+          <Button size="sm" variant="danger" icon={<UserX className="size-3.5" />} onClick={() => setAction('disable')}>
+            Disable account
+          </Button>
+        ) : (
+          <Button size="sm" variant="soft" icon={<UserCheck className="size-3.5" />} onClick={() => setAction('enable')}>
+            Enable account
+          </Button>
+        )}
+        <Button size="sm" variant="soft" icon={<LogOut className="size-3.5" />} onClick={() => setAction('sign-out')}>
+          Sign out everywhere
+        </Button>
+        {keycloak ? (
+          <>
+            <Button size="sm" variant="soft" icon={<ShieldOff className="size-3.5" />} onClick={() => setAction('reset-two-step')}>
+              Reset two-step verification
+            </Button>
+            <Button size="sm" variant="soft" icon={<MailCheck className="size-3.5" />} onClick={() => setAction('resend-verification')}>
+              Resend verification email
+            </Button>
+          </>
+        ) : null}
+      </div>
+      {!keycloak ? <p className="mt-2 text-[13px] text-muted">Two-step verification and email verification apply to Keycloak accounts only.</p> : null}
+      {action ? (
+        <Confirm
+          title={ACTIONS[action].title}
+          body={<p>{ACTIONS[action].body}</p>}
+          confirmLabel={ACTIONS[action].label}
+          danger={ACTIONS[action].danger}
+          onConfirm={async () => {
+            const res = await api.userAction(user.id, action);
+            const kcNote = res.keycloak === 'failed' ? ' Keycloak didn’t answer, so their Keycloak sign-in wasn’t changed: try again.' : '';
+            const extra = action === 'reset-two-step' ? ` (${res.removed ?? 0} authenticator${res.removed === 1 ? '' : 's'} removed)` : '';
+            setNotice({ tone: res.keycloak === 'failed' ? 'bad' : 'good', text: `${ACTIONS[action].done}${extra}${kcNote}` });
+            await onChanged();
+          }}
+          onClose={() => setAction(null)}
+        />
+      ) : null}
+    </Card>
   );
 }

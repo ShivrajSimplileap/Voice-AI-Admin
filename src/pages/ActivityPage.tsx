@@ -30,8 +30,24 @@ const ACTION_LABEL: Record<string, string> = {
   'knowledge.file_retried': 'Retried a knowledge file',
   'phone_number.added': 'Added a phone number',
   'phone_number.assigned': 'Moved a phone number',
+  'org.suspended': 'Suspended a workspace',
+  'org.restored': 'Restored a workspace',
+  'org.features_changed': 'Changed workspace features',
+  'org.owner_changed': 'Changed a workspace’s owner',
+  'campaign.paused': 'Paused a campaign',
+  'campaigns.paused_all': 'Paused a workspace’s campaigns',
+  'dialing.stopped': 'Stopped all dialing',
+  'dialing.resumed': 'Resumed dialing',
+  'call.ended': 'Ended a live call',
+  'user.disabled': 'Disabled a customer account',
+  'user.enabled': 'Enabled a customer account',
+  'user.signed_out': 'Signed a customer out everywhere',
+  'user.two_step_reset': 'Reset a customer’s two-step verification',
+  'user.verification_sent': 'Resent a verification email',
 };
+const WARN_EXTRA = ['org.suspended', 'dialing.stopped', 'user.disabled'];
 const WARN = new Set(['admin.sign_in_failed', 'admin.locked', 'admin.disabled']);
+WARN_EXTRA.forEach((a) => WARN.add(a));
 
 const label = (action: string) => ACTION_LABEL[action] ?? action;
 
@@ -45,6 +61,13 @@ function detailText(e: AuditEvent): string | null {
   if (e.action === 'phone_number.assigned') return `${d.from ?? 'free'} → ${d.to ?? 'free'}`;
   if (e.action === 'calls.stuck_closed') return `${d.closed} closed`;
   if (e.action === 'calls.failed_analyses_retried') return `${d.queued} queued`;
+  if (e.action === 'org.suspended' || e.action === 'dialing.stopped') return d.reason ? String(d.reason) : null;
+  if (e.action === 'campaigns.paused_all') return `${d.paused} paused`;
+  if (e.action === 'org.owner_changed') return `now ${d.owner}`;
+  if (e.action === 'org.features_changed' && d.changes)
+    return Object.entries(d.changes as Record<string, { to: unknown }>)
+      .map(([k, v]) => `${k} ${typeof v.to === 'boolean' ? (v.to ? 'on' : 'off') : v.to}`)
+      .join(', ');
   return null;
 }
 
