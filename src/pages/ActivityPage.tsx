@@ -22,6 +22,14 @@ const ACTION_LABEL: Record<string, string> = {
   'admin.role_changed': 'Changed role',
   'admin.disabled': 'Disabled admin',
   'admin.enabled': 'Enabled admin',
+  'call.transcript_viewed': 'Opened a call transcript',
+  'call.recording_played': 'Played a call recording',
+  'call.analysis_retried': 'Retried a call summary',
+  'calls.stuck_closed': 'Closed stuck calls',
+  'calls.failed_analyses_retried': 'Retried failed summaries',
+  'knowledge.file_retried': 'Retried a knowledge file',
+  'phone_number.added': 'Added a phone number',
+  'phone_number.assigned': 'Moved a phone number',
 };
 const WARN = new Set(['admin.sign_in_failed', 'admin.locked', 'admin.disabled']);
 
@@ -34,6 +42,9 @@ function detailText(e: AuditEvent): string | null {
   if (e.action === 'admin.sign_in_failed') return d.reason === 'wrong_password' ? `wrong password (attempt ${d.attempt})` : d.reason === 'disabled' ? 'account disabled' : 'unknown email';
   if (e.action === 'admin.locked') return `for ${d.minutes} minutes`;
   if (e.action === 'admin.signed_in' && d.newNetwork) return 'new network';
+  if (e.action === 'phone_number.assigned') return `${d.from ?? 'free'} → ${d.to ?? 'free'}`;
+  if (e.action === 'calls.stuck_closed') return `${d.closed} closed`;
+  if (e.action === 'calls.failed_analyses_retried') return `${d.queued} queued`;
   return null;
 }
 

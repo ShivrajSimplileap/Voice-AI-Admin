@@ -5,6 +5,11 @@ import { ActivityPage } from './pages/ActivityPage';
 import { AdminsPage } from './pages/AdminsPage';
 import { AcceptInvitePage, ForgotPasswordPage, LoginPage, ResetPasswordPage } from './pages/AuthPages';
 import { OverviewPage } from './pages/OverviewPage';
+import { WorkspaceDetailPage, WorkspacesPage } from './pages/WorkspacesPage';
+import { UserDetailPage, UsersPage } from './pages/UsersPage';
+import { CallDetailPage, CallsPage } from './pages/CallsPage';
+import { NumbersPage } from './pages/NumbersPage';
+import { HealthPage } from './pages/HealthPage';
 import { Link, match, Redirect, usePath } from './router';
 import { SessionProvider, useSession } from './session';
 
@@ -18,6 +23,11 @@ export function App() {
 
 const SIGNED_IN_PAGES: Partial<Record<string, () => React.JSX.Element>> = {
   '/': OverviewPage,
+  '/workspaces': WorkspacesPage,
+  '/users': UsersPage,
+  '/calls': CallsPage,
+  '/numbers': NumbersPage,
+  '/health': HealthPage,
   '/admins': AdminsPage,
   '/activity': ActivityPage,
   '/account': AccountPage,
@@ -41,6 +51,21 @@ function Routes() {
     return <Redirect to="/login" />;
   }
   if (path === '/login' || path === '/forgot-password') return <Redirect to="/" />;
+
+  // Pages for one record (every role may open them).
+  const detail = (
+    [
+      ['/workspaces/:id', (id: string) => <WorkspaceDetailPage key={id} id={id} />],
+      ['/users/:id', (id: string) => <UserDetailPage key={id} id={id} />],
+      ['/calls/:id', (id: string) => <CallDetailPage key={id} id={id} />],
+    ] as const
+  )
+    .map(([pattern, render]) => {
+      const m = match(pattern, path);
+      return m ? render(m.id) : null;
+    })
+    .find(Boolean);
+  if (detail) return <Shell>{detail}</Shell>;
 
   const Page = SIGNED_IN_PAGES[path];
   const allowed = NAV.find((n) => n.to === path)?.roles.includes(admin.role);

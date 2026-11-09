@@ -87,6 +87,12 @@ export const setSessionEndedHandler = (fn: () => void) => {
 };
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const res = await send(method, path, body);
+  return (await res.json().catch(() => ({}))) as T;
+}
+
+/** Sends a request; throws ApiError on failure (and ends the session on a 401). */
+async function send(method: string, path: string, body?: unknown): Promise<Response> {
   const token = tokenStore.get();
   const res = await fetch(`/api/admin${path}`, {
     method,
@@ -96,14 +102,23 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
     const code = (data as { code?: string }).code ?? 'error';
     if (res.status === 401 && token && code === 'admin_session_invalid') onSessionEnded();
     throw new ApiError(res.status, (data as { error?: string }).error ?? 'Something went wrong. Try again.', code);
   }
-  return data as T;
+  return res;
 }
+
+const qs = (params: Record<string, string | number | undefined | null>) => {
+  const q = new URLSearchParams(
+    Object.entries(params)
+      .filter(([, v]) => v !== undefined && v !== null && v !== '')
+      .map(([k, v]) => [k, String(v)])
+  ).toString();
+  return q ? `?${q}` : '';
+};
 
 export const api = {
   login: (email: string, password: string) => call<Session>('POST', '/auth/login', { email, password }),
@@ -126,8 +141,215 @@ export const api = {
   updateAdmin: (id: string, change: { role?: AdminRole; isActive?: boolean }) => call<{ admin: Admin }>('PATCH', `/admins/${id}`, change),
   sendResetLink: (id: string) => call<{ emailSent: boolean; link?: string }>('POST', `/admins/${id}/reset-link`),
 
-  audit: (params: Record<string, string | undefined>) => {
-    const qs = new URLSearchParams(Object.entries(params).filter((e): e is [string, string] => Boolean(e[1]))).toString();
-    return call<{ data: AuditEvent[]; next: { before: string; beforeId: string } | null; actions: string[] }>('GET', `/audit${qs ? `?${qs}` : ''}`);
-  },
+  audit: (params: Record<string, string | undefined>) =>
+    call<{ data: AuditEvent[]; next: { before: string; beforeId: string } | null; actions: string[] }>('GET', `/audit${qs(params)}`),
+
+  // Phase 2: monitoring
+  overview: () => call<Overview>('GET', `/overview${qs({ tz: Intl.DateTimeFormat().resolvedOptions().timeZone })}`),
+  orgs: (params: Params) => call<Page<OrgRow>>('GET', `/orgs${qs(params)}`),
+  orgOptions: () => call<{ data: { id: string; name: string; slug: string }[] }>('GET', '/orgs/options'),
+  org: (id: string) => call<OrgDetail>('GET', `/orgs/${id}`),
+  users: (params: Params) => call<Page<UserRow>>('GET', `/users${qs(params)}`),
+  user: (id: string) => call<UserDetail>('GET', `/users/${id}`),
+  calls: (params: Params) => call<Page<CallRow>>('GET', `/calls${qs(params)}`),
+  liveCalls: () => call<{ data: LiveCall[] }>('GET', '/calls/live'),
+  callDetail: (id: string) => call<CallRow & { metadata: Record<string, unknown>; providerCallId: string | null }>('GET', `/calls/${id}`),
+  callTranscript: (id: string) =>
+    call<{ transcript: { seq: number; speaker: 'agent' | 'caller'; text: string; offsetMs: number; interrupted: boolean }[]; summary: string | null; nextStep: string | null; hasTranscript: boolean }>(
+      'GET',
+      `/calls/${id}/transcript`
+    ),
+  /** The recording as a blob (the audio element can't send the session token itself). */
+  callRecording: async (id: string) => (await send('GET', `/calls/${id}/recording`)).blob(),
+  retryAnalysis: (id: string) => call<CallRow>('POST', `/calls/${id}/retry-analysis`),
+  numbers: () => call<{ data: PlatformNumber[] }>('GET', '/numbers'),
+  addNumber: (body: { provider: string; number: string; label: string; orgId: string | null }) => call<{ data: PlatformNumber[] }>('POST', '/numbers', body),
+  assignNumber: (id: string, orgId: string | null) => call<{ data: PlatformNumber[] }>('PATCH', `/numbers/${id}`, { orgId }),
+  health: () => call<Health>('GET', '/health'),
+  closeStuckCalls: () => call<{ closed: number }>('POST', '/health/close-stuck-calls'),
+  retryFailedAnalyses: () => call<{ queued: number }>('POST', '/health/retry-failed-analyses'),
+  retryKnowledgeFile: (id: string) => call<{ ok: true }>('POST', `/knowledge/${id}/retry`),
 };
+
+// ---------------------------------------------------------------------------
+// Phase 2 types
+// ---------------------------------------------------------------------------
+export type Params = Record<string, string | number | undefined | null>;
+export interface Page<T> {
+  data: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export interface CallTotals {
+  calls: number;
+  minutes: number;
+  connected: number;
+  converted: number;
+  playground: number;
+  inbound: number;
+  outbound: number;
+  connectRate: number;
+  conversionRate: number;
+}
+
+export interface Overview {
+  totals: { workspaces: number; newWorkspaces30d: number; people: number; activePeople7d: number };
+  calls: { today: CallTotals; week: CallTotals; month: CallTotals };
+  now: { liveCalls: number; runningCampaigns: number; dueContacts: number };
+  series: { day: string; calls: number; minutes: number; connected: number; workspaces: number }[];
+  topWorkspaces: { id: string; name: string; calls: number; minutes: number; connected: number; connectRate: number }[];
+  dropping: { id: string; name: string; thisWeek: number; lastWeek: number; change: number }[];
+  alerts: Record<'stuckCalls' | 'failedAnalyses7d' | 'failedRecordings7d' | 'failedKnowledgeFiles' | 'failedImports7d' | 'failedDigests7d' | 'campaignErrors', number>;
+}
+
+export interface OrgStats {
+  members: number;
+  agents: number;
+  leads: number;
+  runningCampaigns: number;
+  numbers: number;
+  calls30d: number;
+  minutes30d: number;
+  connectRate30d: number;
+  lastCallAt: string | null;
+  knowledgeFiles: number;
+  storageBytes: number;
+}
+
+export interface OrgRow extends OrgStats {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: string;
+  timezone: string;
+  ssoEnabled: boolean;
+  mfaRequired: boolean;
+}
+
+export interface OrgDetail {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: string;
+  timezone: string;
+  defaultLanguage: string;
+  settings: {
+    mfaRequired: boolean;
+    ssoEnabled: boolean;
+    ssoDomain: string | null;
+    ssoVerified: boolean;
+    emailDigest: string | null;
+    recordingDisclosure: boolean;
+    compliance: boolean;
+    recordingRetentionDays: number | null;
+    meetings: boolean;
+    aiCallbacks: boolean;
+  };
+  stats: OrgStats;
+  usage30d: CallTotals & { failed: number };
+  knowledge: { files: number; failed: number; queued: number };
+  leadsByStatus: Record<string, number>;
+  members: { id: string; name: string; email: string; role: string; isActive: boolean; userActive: boolean; authProvider: string; lastLoginAt: string | null; joinedAt: string }[];
+  teams: { id: string; name: string }[];
+  agents: { id: string; name: string; title: string; voice: string; language: string | null; isActive: boolean; createdAt: string }[];
+  campaigns: { id: string; name: string; status: string; channel: string; dialed: number; connected: number; converted: number; lastError: string | null; startedAt: string | null; createdAt: string }[];
+  numbers: { id: string; number: string; provider: string; label: string; inboundEnabled: boolean; agentName: string | null }[];
+  recentCalls: CallRow[];
+  activity: { id: string; action: string; actorEmail: string | null; actorName: string | null; targetLabel: string | null; createdAt: string }[];
+}
+
+export interface Membership {
+  id: string;
+  name: string;
+  role: string;
+  isActive: boolean;
+}
+
+export interface UserRow {
+  id: string;
+  name: string;
+  email: string;
+  authProvider: string;
+  isActive: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+  workspaces: Membership[];
+}
+
+export interface UserDetail extends UserRow {
+  usage: { calls30d: number; callsTotal: number; lastCallAt: string | null };
+  pendingInvitations: { id: string; orgName: string; role: string; createdAt: string }[];
+}
+
+export interface CallRow {
+  id: string;
+  org: { id: string; name: string };
+  provider: string | null;
+  direction: 'playground' | 'inbound' | 'outbound';
+  status: 'in_progress' | 'completed' | 'failed';
+  agentLabel: string;
+  voice: string;
+  userName: string | null;
+  fromNumber: string | null;
+  toNumber: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  durationSec: number;
+  turnCount: number;
+  interruptions: number;
+  knowledgeLookups: number;
+  hangup: { reason: string; agentReason: string | null } | null;
+  hasTranscript: boolean;
+  recording: { mime: string | null; bytes: number | null } | null;
+  recordingStatus: string;
+  analysisStatus: string;
+  analysisError: string | null;
+  outcome: string | null;
+  summary: string | null;
+  sentiment: string | null;
+  nextStep: string | null;
+}
+
+export interface LiveCall {
+  id: string;
+  org: { id: string; name: string };
+  direction: CallRow['direction'];
+  agent: string;
+  person: string | null;
+  fromNumber: string | null;
+  toNumber: string | null;
+  provider: string | null;
+  startedAt: string;
+  turns: number;
+  lastActivityAt: string;
+  stuck: boolean;
+}
+
+export interface PlatformNumber {
+  id: string;
+  number: string;
+  provider: string;
+  label: string;
+  country: string;
+  org: { id: string; name: string; slug: string } | null;
+  agentName: string | null;
+}
+
+export interface Health {
+  services: { key: string; name: string; status: 'ok' | 'warn' | 'down' | 'off'; detail: string; ms?: number }[];
+  workers: { key: string; name: string; waiting: number | null; running: number | null; failed: number | null; oldestWaitingSec: number | null; note: string }[];
+  failures: Record<'knowledge' | 'analyses' | 'imports' | 'digests' | 'campaigns', { id: string; name: string; error: string | null; at: string; orgId: string; orgName: string }[]>;
+  settings: {
+    environment: string;
+    workersInThisProcess: boolean;
+    dialerSimulated: boolean;
+    liveRequiresSignIn: boolean;
+    publicApiUrl: string | null;
+    storageDriver: string;
+    embeddingProvider: string;
+    analysisProvider: string;
+  };
+  checkedAt: string;
+}

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { History, LayoutGrid, LogOut, Menu, UserCog, UsersRound, X } from 'lucide-react';
+import { Activity, Building2, History, LayoutGrid, LogOut, Menu, Phone, PhoneCall, UserCog, Users, UsersRound, X } from 'lucide-react';
 import { ROLE_LABEL, type AdminRole } from '../api';
 import { Link, usePath } from '../router';
 import { useAdmin, useSession } from '../session';
@@ -15,6 +15,11 @@ interface NavItem {
 const ALL: AdminRole[] = ['super_admin', 'admin', 'viewer'];
 export const NAV: NavItem[] = [
   { to: '/', label: 'Overview', icon: <LayoutGrid className="size-[18px]" />, roles: ALL },
+  { to: '/workspaces', label: 'Workspaces', icon: <Building2 className="size-[18px]" />, roles: ALL },
+  { to: '/users', label: 'Users', icon: <Users className="size-[18px]" />, roles: ALL },
+  { to: '/calls', label: 'Calls', icon: <PhoneCall className="size-[18px]" />, roles: ALL },
+  { to: '/numbers', label: 'Phone numbers', icon: <Phone className="size-[18px]" />, roles: ALL },
+  { to: '/health', label: 'System health', icon: <Activity className="size-[18px]" />, roles: ALL },
   { to: '/admins', label: 'Admin team', icon: <UsersRound className="size-[18px]" />, roles: ['super_admin'] },
   { to: '/activity', label: 'Activity log', icon: <History className="size-[18px]" />, roles: ['super_admin', 'admin'] },
   { to: '/account', label: 'My account', icon: <UserCog className="size-[18px]" />, roles: ALL },
