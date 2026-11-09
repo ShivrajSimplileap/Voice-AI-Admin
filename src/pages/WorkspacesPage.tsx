@@ -6,6 +6,7 @@ import { Alert, Badge, Button, Card, PageHeader, cx, fullTime, timeAgo } from '.
 import { useAdmin } from '../session';
 import { PauseModal, WorkspaceControls } from './WorkspaceControls';
 import { WorkspacePlan } from './WorkspacePlan';
+import { WorkspaceData, WorkspaceNotes } from './WorkspaceNotes';
 import { StatTile } from '../components/charts';
 import {
   CallStatusBadge,
@@ -32,8 +33,9 @@ import {
 // ---------------------------------------------------------------------------
 export function WorkspacesPage() {
   useTitle('Workspaces');
-  const [f, set] = useQueryState({ q: '', status: '', sort: 'created', dir: 'desc', page: '1' });
-  const state = useLoad(() => api.orgs({ q: f.q, status: f.status, sort: f.sort, dir: f.dir, page: f.page, pageSize: 50 }), [f.q, f.status, f.sort, f.dir, f.page]);
+  const [f, set] = useQueryState({ q: '', status: '', tag: '', sort: 'created', dir: 'desc', page: '1' });
+  const state = useLoad(() => api.orgs({ q: f.q, status: f.status, tag: f.tag, sort: f.sort, dir: f.dir, page: f.page, pageSize: 50 }), [f.q, f.status, f.tag, f.sort, f.dir, f.page]);
+  const tags = useLoad(() => api.tags(), []);
 
   const columns: Column<OrgRow>[] = [
     {
@@ -47,6 +49,15 @@ export function WorkspacesPage() {
             {o.status === 'suspended' ? <Badge tone="bad">Suspended</Badge> : null}
           </div>
           <div className="text-[12px] text-muted">{o.slug}</div>
+          {o.tags.length ? (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {o.tags.slice(0, 3).map((t) => (
+                <span key={t} className="rounded-full bg-blue-soft px-2 py-0.5 text-[11px] font-semibold text-navy">
+                  {t}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
       ),
     },
@@ -81,6 +92,14 @@ export function WorkspacesPage() {
       <FilterBar>
         <SearchBox value={f.q} onChange={(q) => set({ q, page: '1' })} placeholder="Search by name or slug" />
         <FilterSelect label="Status" value={f.status} onChange={(status) => set({ status, page: '1' })} options={[{ value: '', label: 'Any status' }, { value: 'active', label: 'Active' }, { value: 'suspended', label: 'Suspended' }]} />
+        {tags.data?.data.length ? (
+          <FilterSelect
+            label="Tag"
+            value={f.tag}
+            onChange={(tag) => set({ tag, page: '1' })}
+            options={[{ value: '', label: 'Any tag' }, ...tags.data.data.map((t) => ({ value: t.tag, label: `${t.tag} (${t.workspaces})` }))]}
+          />
+        ) : null}
       </FilterBar>
       <Loaded state={state}>
         {(page) => (
@@ -104,8 +123,8 @@ export function WorkspacesPage() {
 // ---------------------------------------------------------------------------
 // Detail
 // ---------------------------------------------------------------------------
-const TABS = ['Overview', 'Controls', 'Plan', 'Members', 'Agents', 'Campaigns', 'Numbers', 'Calls', 'Activity'] as const;
-const TAB_LABEL: Partial<Record<Tab, string>> = { Plan: 'Plan & usage' };
+const TABS = ['Overview', 'Controls', 'Plan', 'Notes', 'Members', 'Agents', 'Campaigns', 'Numbers', 'Calls', 'Activity'] as const;
+const TAB_LABEL: Partial<Record<Tab, string>> = { Plan: 'Plan & usage', Notes: 'Notes & tags' };
 type Tab = (typeof TABS)[number];
 
 const yes = (on: boolean, label = on ? 'On' : 'Off') => <Badge tone={on ? 'good' : 'neutral'}>{label}</Badge>;
@@ -153,7 +172,13 @@ export function WorkspaceDetailPage({ id }: { id: string }) {
             </div>
             {tab === 'Overview' ? <OrgOverview o={o} /> : null}
             {tab === 'Plan' ? <WorkspacePlan orgId={o.id} /> : null}
-            {tab === 'Controls' ? <WorkspaceControls key={o.status + JSON.stringify(o.features)} o={o} onChanged={state.reload} /> : null}
+            {tab === 'Notes' ? <WorkspaceNotes o={o} onChanged={state.reload} /> : null}
+            {tab === 'Controls' ? (
+              <div className="space-y-4">
+                <WorkspaceControls key={o.status + JSON.stringify(o.features)} o={o} onChanged={state.reload} />
+                <WorkspaceData o={o} />
+              </div>
+            ) : null}
             {tab === 'Members' ? <OrgMembers o={o} /> : null}
             {tab === 'Agents' ? <OrgAgents o={o} /> : null}
             {tab === 'Campaigns' ? <OrgCampaigns o={o} onChanged={state.reload} /> : null}

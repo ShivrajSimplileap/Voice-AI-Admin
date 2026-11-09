@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Activity, Building2, History, Layers, LayoutGrid, LogOut, Menu, Phone, PhoneCall, UserCog, Users, UsersRound, Wallet, X } from 'lucide-react';
+import { Activity, Building2, History, Layers, LayoutGrid, LogOut, Megaphone, Menu, Phone, PhoneCall, Settings, ShieldCheck, UserCog, Users, UsersRound, Wallet, X } from 'lucide-react';
 import { api, ROLE_LABEL, type AdminRole } from '../api';
 import { Link, usePath } from '../router';
 import { useInterval, useLoad } from './data';
@@ -22,8 +22,11 @@ export const NAV: NavItem[] = [
   { to: '/numbers', label: 'Phone numbers', icon: <Phone className="size-[18px]" />, roles: ALL },
   { to: '/usage', label: 'Usage and cost', icon: <Wallet className="size-[18px]" />, roles: ALL },
   { to: '/plans', label: 'Plans', icon: <Layers className="size-[18px]" />, roles: ALL },
+  { to: '/compliance', label: 'Compliance', icon: <ShieldCheck className="size-[18px]" />, roles: ALL },
+  { to: '/announcements', label: 'Announcements', icon: <Megaphone className="size-[18px]" />, roles: ALL },
   { to: '/health', label: 'System health', icon: <Activity className="size-[18px]" />, roles: ALL },
   { to: '/admins', label: 'Admin team', icon: <UsersRound className="size-[18px]" />, roles: ['super_admin'] },
+  { to: '/settings', label: 'Platform settings', icon: <Settings className="size-[18px]" />, roles: ALL },
   { to: '/activity', label: 'Activity log', icon: <History className="size-[18px]" />, roles: ['super_admin', 'admin'] },
   { to: '/account', label: 'My account', icon: <UserCog className="size-[18px]" />, roles: ALL },
 ];
@@ -106,6 +109,7 @@ export function Shell({ children }: { children: ReactNode }) {
       ) : null}
 
       <main className="min-w-0 flex-1 px-4 pt-2 pb-10 lg:px-2 lg:pt-4">
+        <MaintenanceBanner />
         <DialingBanner />
         {children}
       </main>
@@ -114,6 +118,28 @@ export function Shell({ children }: { children: ReactNode }) {
 }
 
 /** While all dialing is stopped, every page says so. */
+function MaintenanceBanner() {
+  const state = useLoad(() => api.maintenance(), []);
+  useInterval(() => void state.reload(), 30_000);
+  useEffect(() => {
+    const on = () => void state.reload();
+    window.addEventListener('admin:maintenance-changed', on);
+    return () => window.removeEventListener('admin:maintenance-changed', on);
+  }, [state.reload]);
+  if (!state.data?.on) return null;
+  return (
+    <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-ink px-4 py-3 text-sm text-white">
+      <span>
+        <strong>Maintenance mode is on</strong> · customers see the maintenance screen and no calls go out
+        {state.data.by ? <span className="text-white/75"> · by {state.data.by}</span> : null}
+      </span>
+      <Link to="/settings" className="rounded-full bg-white/15 px-3 py-1 font-semibold hover:bg-white/25">
+        Manage
+      </Link>
+    </div>
+  );
+}
+
 function DialingBanner() {
   const state = useLoad(() => api.dialing(), []);
   useInterval(() => void state.reload(), 30_000);

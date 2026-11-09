@@ -201,7 +201,105 @@ export const api = {
   archivePlan: (id: string, archived: boolean) => call<Plan>('POST', `/plans/${id}/${archived ? 'archive' : 'restore'}`),
   orgPlan: (id: string) => call<OrgPlan>('GET', `/orgs/${id}/plan`),
   setOrgPlan: (id: string, body: OrgPlanInput) => call<OrgPlan>('PUT', `/orgs/${id}/plan`, body),
+
+  // Phase 5: extras.
+  announcements: () => call<{ data: Announcement[] }>('GET', '/announcements'),
+  createAnnouncement: (body: { message: string; tone: AnnouncementTone; orgIds: string[] | null; startsAt?: string; endsAt?: string | null }) =>
+    call<Announcement>('POST', '/announcements', body),
+  endAnnouncement: (id: string) => call<Announcement>('POST', `/announcements/${id}/end`),
+  maintenance: () => call<Maintenance>('GET', '/maintenance'),
+  setMaintenance: (body: { on: boolean; message?: string; until?: string | null }) => call<Maintenance>('PUT', '/maintenance', body),
+  aiModels: () => call<AiModelSettings>('GET', '/ai-models'),
+  setAiModels: (body: { live?: string | null; analysis?: string[] | null; transcription?: string[] | null }) => call<AiModelSettings>('PUT', '/ai-models', body),
+  platformDnd: (params: Params) => call<Page<PlatformDnd>>('GET', `/dnd${qs(params)}`),
+  addPlatformDnd: (body: { numbers: string; reason: string; source: 'manual' | 'upload' }) =>
+    call<{ added: number; alreadyListed: number; invalid: string[] }>('POST', '/dnd', body),
+  removePlatformDnd: (id: string) => call<{ ok: true }>('DELETE', `/dnd/${id}`),
+  compliance: (days: number) => call<ComplianceReport>('GET', `/compliance${qs({ days })}`),
+  tags: () => call<{ data: { tag: string; workspaces: number }[] }>('GET', '/tags'),
+  setTags: (orgId: string, tags: string[]) => call<{ tags: string[] }>('PUT', `/orgs/${orgId}/tags`, { tags }),
+  notes: (orgId: string) => call<{ data: OrgNote[] }>('GET', `/orgs/${orgId}/notes`),
+  addNote: (orgId: string, body: string) => call<{ data: OrgNote[] }>('POST', `/orgs/${orgId}/notes`, { body }),
+  deleteNote: (orgId: string, noteId: string) => call<{ data: OrgNote[] }>('DELETE', `/orgs/${orgId}/notes/${noteId}`),
+  exportOrg: async (orgId: string) => {
+    const res = await send('GET', `/orgs/${orgId}/export`);
+    const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'workspace.json';
+    return { blob: await res.blob(), name };
+  },
+  deleteOrg: (orgId: string, body: { confirmName: string; reason: string }) =>
+    call<{ peopleKept: number; peopleDeleted: number; calls: number; leads: number; files: number; filesFailed: number }>('POST', `/orgs/${orgId}/delete`, body),
 };
+
+// ---------------------------------------------------------------------------
+// Phase 5 types
+// ---------------------------------------------------------------------------
+export type AnnouncementTone = 'info' | 'warning' | 'critical';
+
+export interface Announcement {
+  id: string;
+  message: string;
+  tone: AnnouncementTone;
+  orgIds: string[] | null;
+  startsAt: string;
+  endsAt: string | null;
+  createdByName: string | null;
+  createdAt: string;
+  state: 'scheduled' | 'live' | 'ended';
+}
+
+export interface Maintenance {
+  on: boolean;
+  message?: string;
+  until?: string | null;
+  at?: string;
+  by?: string;
+}
+
+export interface AiModelSettings {
+  current: { live: string; analysis: string[]; transcription: string[] };
+  config: { live: string; analysis: string[]; transcription: string[] };
+  overridden: { live: boolean; analysis: boolean; transcription: boolean };
+  embedding: string;
+  hasApiKey: boolean;
+}
+
+export interface PlatformDnd {
+  id: string;
+  number: string;
+  reason: string;
+  source: string;
+  createdAt: string;
+}
+
+export interface ComplianceRow {
+  id: string;
+  name: string;
+  status: 'active' | 'suspended';
+  enabled: boolean;
+  rules: { requireConsent: boolean; dndCheck: boolean; callerIdSeries: boolean; aiDisclosure: boolean };
+  regulatedFinancial: boolean;
+  retentionDays: number | null;
+  dndListSize: number;
+  skipped: Record<string, number>;
+  skippedTotal: number;
+  callbacksRefused: number;
+  overdueRecordings: number;
+}
+
+export interface ComplianceReport {
+  days: number;
+  platformDndSize: number;
+  totals: { enabled: number; workspaces: number; skipped: number; overdueRecordings: number };
+  workspaces: ComplianceRow[];
+}
+
+export interface OrgNote {
+  id: string;
+  body: string;
+  adminId: string | null;
+  adminName: string;
+  createdAt: string;
+}
 
 // ---------------------------------------------------------------------------
 // Phase 4 types
@@ -398,9 +496,11 @@ export interface OrgRow extends OrgStats {
   plan: string | null;
   planStatus: PlanStatus | null;
   trialEndsAt: string | null;
+  tags: string[];
 }
 
 export interface OrgDetail {
+  tags: string[];
   id: string;
   name: string;
   slug: string;

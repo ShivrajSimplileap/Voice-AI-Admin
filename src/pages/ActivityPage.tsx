@@ -51,8 +51,20 @@ const ACTION_LABEL: Record<string, string> = {
   'org.plan_changed': 'Changed a workspace’s plan',
   'rates.updated': 'Changed the cost rates',
   'usage.exported': 'Exported usage',
+  'announcement.created': 'Posted an announcement',
+  'announcement.ended': 'Ended an announcement',
+  'maintenance.started': 'Started maintenance mode',
+  'maintenance.ended': 'Ended maintenance mode',
+  'ai_models.changed': 'Changed the AI models',
+  'platform_dnd.added': 'Added numbers to the platform DND list',
+  'platform_dnd.removed': 'Removed a number from the platform DND list',
+  'org.note_added': 'Added a note to a workspace',
+  'org.note_deleted': 'Deleted a workspace note',
+  'org.tags_changed': 'Changed a workspace’s tags',
+  'org.exported': 'Exported a workspace’s data',
+  'org.deleted': 'Deleted a workspace',
 };
-const WARN_EXTRA = ['org.suspended', 'dialing.stopped', 'user.disabled'];
+const WARN_EXTRA = ['org.suspended', 'dialing.stopped', 'user.disabled', 'maintenance.started', 'org.deleted', 'org.exported'];
 const WARN = new Set(['admin.sign_in_failed', 'admin.locked', 'admin.disabled']);
 WARN_EXTRA.forEach((a) => WARN.add(a));
 
@@ -72,6 +84,10 @@ function detailText(e: AuditEvent): string | null {
   if (e.action === 'campaigns.paused_all') return `${d.paused} paused`;
   if (e.action === 'org.owner_changed') return `now ${d.owner}`;
   if (e.action === 'org.plan_changed') return d.plan ? String(d.plan) : 'no plan';
+  if (e.action === 'platform_dnd.added') return `${d.added} added${d.reason ? ` · ${d.reason}` : ''}`;
+  if (e.action === 'org.tags_changed' && Array.isArray(d.after)) return (d.after as string[]).join(', ') || 'none';
+  if (e.action === 'org.deleted' && d.reason) return String(d.reason);
+  if (e.action === 'maintenance.started' && d.message) return String(d.message);
   if (e.action === 'usage.exported' && d.period) return String(d.period).replace('_', ' ');
   if (e.action === 'org.features_changed' && d.changes)
     return Object.entries(d.changes as Record<string, { to: unknown }>)
