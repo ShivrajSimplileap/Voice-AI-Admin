@@ -200,7 +200,7 @@ function StartModal({ orgId, plan, onClose, onDone }: { orgId: string; plan: Org
     >
       {error ? <Alert>{error}</Alert> : null}
       <p className="text-sm text-ink-2">
-        A monthly Razorpay subscription for <strong>{plan.plan?.name}</strong> at <strong>{fmtMoney(plan.plan?.priceMonthly ?? 0, 'INR')}</strong>. Razorpay emails a link where the
+        A monthly Razorpay subscription for <strong>{plan.plan?.name}</strong> at <strong>{fmtMoney(plan.plan?.priceMonthly ?? 0, plan.cost?.currency ?? 'USD')}</strong>. Razorpay emails a link where the
         customer pays and sets up the monthly mandate (UPI, card or bank).
         {trial ? ` The first charge is on ${trial.toLocaleDateString()}, when the trial ends.` : ' The first charge is when they pay.'}
       </p>

@@ -13,7 +13,6 @@ type Pay = BillingOverview['payments'][number];
 export function BillingPage() {
   useTitle('Billing');
   const state = useLoad(() => api.billing(), []);
-  const inr = (n: number) => fmtMoney(n, 'INR');
 
   const subColumns: Column<Sub>[] = [
     { key: 'org', label: 'Workspace', render: (s) => <span className="font-semibold">{s.orgName}</span> },
@@ -68,13 +67,19 @@ export function BillingPage() {
             ) : (
               <>
                 {b.testMode ? <Alert tone="info">Razorpay is in test mode: no real money moves. Switch to live keys when you’re ready.</Alert> : null}
+                {b.currency !== 'INR' ? (
+                  <Alert tone="info">
+                    Plans are charged in {b.currency}. Razorpay only takes {b.currency} by card, and only once international payments are enabled on your Razorpay account (Settings →
+                    Payment methods). For UPI and e-mandates, use INR on Usage → Rates.
+                  </Alert>
+                ) : null}
                 {!b.webhookSecretSet ? <Alert>RAZORPAY_WEBHOOK_SECRET isn’t set, so payments from Razorpay can’t be received. Payments and status changes won’t show here.</Alert> : null}
               </>
             )}
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatTile label="Paying workspaces" value={fmtNum(b.totals.active)} sub={`${fmtNum(b.totals.waiting)} waiting for the customer`} />
-              <StatTile label="Monthly recurring" value={inr(b.totals.mrr)} sub="Active subscriptions" />
-              <StatTile label="Collected this month" value={inr(b.totals.collectedThisMonth)} sub="Payments received (UTC month)" />
+              <StatTile label="Monthly recurring" value={fmtMoney(b.totals.mrr, b.currency)} sub="Active subscriptions" />
+              <StatTile label="Collected this month" value={fmtMoney(b.totals.collectedThisMonth, b.currency)} sub="Payments received (UTC month)" />
               <StatTile
                 label="Needs attention"
                 value={fmtNum(b.totals.troubled + b.totals.failedPayments30d)}

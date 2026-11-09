@@ -281,6 +281,7 @@ export interface BillingOverview {
   enabled: boolean;
   testMode: boolean;
   webhookSecretSet: boolean;
+  currency: string;
   totals: { active: number; mrr: number; collectedThisMonth: number; failedPayments30d: number; unmatchedEvents30d: number; waiting: number; troubled: number };
   subscriptions: (SubscriptionInfo & { orgId: string; orgName: string; planName: string | null })[];
   payments: (PaymentInfo & { orgId: string | null; orgName: string | null })[];
@@ -373,6 +374,7 @@ export interface Plan {
   limits: PlanLimits;
   trialDays: number;
   isDefault: boolean;
+  isPublic: boolean;
   archived: boolean;
   createdAt: string;
   workspaces: number;
@@ -386,6 +388,7 @@ export interface PlanInput {
   limits: Partial<Record<LimitKey, number | null>>;
   trialDays: number;
   isDefault: boolean;
+  isPublic: boolean;
 }
 
 export interface OrgPlan {

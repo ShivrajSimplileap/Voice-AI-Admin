@@ -194,7 +194,22 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
 // ---------------------------------------------------------------------------
 // Dialog
 // ---------------------------------------------------------------------------
-export function Modal({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
+export function Modal({
+  title,
+  subtitle,
+  onClose,
+  children,
+  footer,
+  size = 'md',
+}: {
+  title: string;
+  subtitle?: ReactNode;
+  onClose: () => void;
+  children: ReactNode;
+  footer?: ReactNode;
+  /** md: a short form or a question; xl: a bigger form (scrolls inside, header and buttons stay). */
+  size?: 'md' | 'xl';
+}) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -204,15 +219,24 @@ export function Modal({ title, onClose, children, footer }: { title: string; onC
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-ink/30 p-4 backdrop-blur-[2px]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={ref} role="dialog" aria-modal="true" aria-label={title} className="w-full max-w-md rounded-3xl bg-surface shadow-pop">
-        <div className="flex items-center justify-between px-6 pt-5">
-          <h2 className="text-lg font-bold">{title}</h2>
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className={cx('flex max-h-[calc(100dvh-2rem)] w-full flex-col rounded-3xl bg-surface shadow-pop', size === 'xl' ? 'max-w-4xl' : 'max-w-md')}
+      >
+        <div className={cx('flex shrink-0 items-start justify-between gap-4 px-6 pt-5', size === 'xl' && 'border-b border-line/70 pb-4')}>
+          <div>
+            <h2 className="text-lg font-bold">{title}</h2>
+            {subtitle ? <p className="mt-0.5 text-[13px] text-muted">{subtitle}</p> : null}
+          </div>
           <button onClick={onClose} className="grid size-9 place-items-center rounded-full text-muted hover:bg-soft hover:text-ink" aria-label="Close">
             <X className="size-4" />
           </button>
         </div>
-        <div className="space-y-4 px-6 py-4">{children}</div>
-        {footer ? <div className="flex justify-end gap-2 px-6 pb-6">{footer}</div> : null}
+        <div className={cx('min-h-0 flex-1 space-y-4 overflow-y-auto px-6', size === 'xl' ? 'py-5' : 'py-4')}>{children}</div>
+        {footer ? <div className={cx('flex shrink-0 flex-wrap items-center justify-end gap-2 px-6 pb-6', size === 'xl' && 'border-t border-line/70 pt-4')}>{footer}</div> : null}
       </div>
     </div>
   );
