@@ -136,6 +136,7 @@ function UsageBody({ r, sort, dir, onSort, onRates }: { r: UsageReport; sort: So
     { key: 'tokens', label: 'AI tokens', sort: 'tokens', align: 'right', render: (w) => fmtTokens(w.tokens) },
     { key: 'cost', label: 'Cost', sort: 'cost', align: 'right', render: (w) => <span className="font-semibold">{money(w.cost)}</span> },
     { key: 'revenue', label: 'Plan price', sort: 'revenue', align: 'right', render: (w) => (w.revenue ? money(w.revenue) : <span className="text-muted">—</span>) },
+    { key: 'collected', label: 'Collected', align: 'right', render: (w) => (w.collected ? money(w.collected) : <span className="text-muted">—</span>) },
     {
       key: 'margin',
       label: 'Margin',
@@ -163,7 +164,7 @@ function UsageBody({ r, sort, dir, onSort, onRates }: { r: UsageReport; sort: So
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile label="Cost to the platform" value={money(r.totals.cost)} sub={range} />
-        <StatTile label="Plan revenue" value={money(r.totals.revenue)} sub={`${fmtNum(r.totals.paying)} paying · ${fmtNum(r.totals.trialing)} on trial`} />
+        <StatTile label="Plan revenue" value={money(r.totals.revenue)} sub={`${money(r.totals.collected)} collected · ${fmtNum(r.totals.paying)} paying · ${fmtNum(r.totals.trialing)} on trial`} />
         <StatTile label="Margin" value={r.totals.margin < 0 ? `−${money(-r.totals.margin)}` : money(r.totals.margin)} sub="Plan revenue minus cost" tone={r.totals.margin < 0 ? 'accent' : undefined} />
         <StatTile label="Phone minutes" value={fmtNum(r.totals.minutes)} sub={`${fmtNum(r.totals.calls)} calls · ${fmtTokens(r.totals.tokens)} AI tokens`} />
       </div>
@@ -187,7 +188,7 @@ function UsageBody({ r, sort, dir, onSort, onRates }: { r: UsageReport; sort: So
         <h2 className="mb-3 text-[15px] font-bold">By workspace</h2>
         <Table rows={rows} columns={columns} onRow={(w) => navigate(`/workspaces/${w.id}?tab=Plan`)} sort={{ key: sort, dir }} onSort={onSort} empty="No workspaces yet." />
         <p className="mt-2 px-1 text-[12px] text-muted">
-          Costs use the current rates, so changing a rate changes past figures too. Plan price counts workspaces whose plan is active (not on trial); no payments are taken yet.
+          Costs use the current rates, so changing a rate changes past figures too. Plan price counts workspaces whose plan is active (not on trial); Collected is what Razorpay took in the period.
         </p>
       </div>
     </div>

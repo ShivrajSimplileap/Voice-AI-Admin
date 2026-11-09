@@ -63,6 +63,9 @@ const ACTION_LABEL: Record<string, string> = {
   'org.tags_changed': 'Changed a workspace’s tags',
   'org.exported': 'Exported a workspace’s data',
   'org.deleted': 'Deleted a workspace',
+  'billing.started': 'Started billing for a workspace',
+  'billing.cancelled': 'Cancelled a workspace’s billing',
+  'billing.refreshed': 'Refreshed billing from Razorpay',
 };
 const WARN_EXTRA = ['org.suspended', 'dialing.stopped', 'user.disabled', 'maintenance.started', 'org.deleted', 'org.exported'];
 const WARN = new Set(['admin.sign_in_failed', 'admin.locked', 'admin.disabled']);

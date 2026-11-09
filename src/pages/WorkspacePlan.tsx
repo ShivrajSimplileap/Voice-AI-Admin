@@ -6,6 +6,7 @@ import { useAdmin } from '../session';
 import { Alert, Badge, Button, Card, SelectField, TextField, fullTime } from '../components/ui';
 import { Loaded, fmtMoney, fmtNum, fmtTokens, useLoad } from '../components/data';
 import { KIND_LABEL, LIMITS, Meter, limitText } from '../components/usage';
+import { WorkspaceBilling } from './WorkspaceBilling';
 
 /** Phase 4: a workspace's plan, what it uses against its limits, and what it costs this month. */
 export function WorkspacePlan({ orgId }: { orgId: string }) {
@@ -20,6 +21,7 @@ export function WorkspacePlan({ orgId }: { orgId: string }) {
 function trialBadge(p: OrgPlan) {
   if (!p.plan) return <Badge>No plan</Badge>;
   if (p.status === 'active') return <Badge tone="good">Active</Badge>;
+  if (p.status === 'unpaid') return <Badge tone="bad">Unpaid · calls paused</Badge>;
   const ends = p.trialEndsAt ? new Date(p.trialEndsAt) : null;
   if (ends && ends <= new Date()) return <Badge tone="bad">Trial ended</Badge>;
   return <Badge tone="blue">Trial{ends ? ` until ${ends.toLocaleDateString()}` : ''}</Badge>;
@@ -148,6 +150,7 @@ function PlanView({ orgId, p, plans, onChanged }: { orgId: string; p: OrgPlan; p
                     options={[
                       { value: 'active', label: 'Active (paid)' },
                       { value: 'trialing', label: 'On trial' },
+                      { value: 'unpaid', label: 'Unpaid (calls pause)' },
                     ]}
                   />
                 ) : null}
@@ -188,6 +191,7 @@ function PlanView({ orgId, p, plans, onChanged }: { orgId: string; p: OrgPlan; p
         </Card>
 
         <div className="space-y-4">
+          <WorkspaceBilling orgId={orgId} plan={p} onChanged={onChanged} />
           <Card className="p-5">
             <h3 className="text-[15px] font-bold">Use against limits</h3>
             <p className="mt-1 text-[13px] text-muted">Minutes count this calendar month in the workspace’s timezone.</p>

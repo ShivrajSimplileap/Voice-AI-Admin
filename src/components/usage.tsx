@@ -48,3 +48,16 @@ export function Meter({ used, limit, unit = '' }: { used: number; limit: number 
     </div>
   );
 }
+
+/** Razorpay subscription states, in words. */
+export const SUB_STATUS: Record<string, { label: string; tone: 'neutral' | 'good' | 'bad' | 'blue' | 'accent' }> = {
+  created: { label: 'Waiting for the customer', tone: 'accent' },
+  authenticated: { label: 'Mandate set, first charge later', tone: 'blue' },
+  active: { label: 'Paying', tone: 'good' },
+  pending: { label: 'Charge failed, retrying', tone: 'accent' },
+  halted: { label: 'Collection stopped', tone: 'bad' },
+  cancelled: { label: 'Cancelled', tone: 'neutral' },
+  completed: { label: 'Completed', tone: 'neutral' },
+  expired: { label: 'Link expired', tone: 'neutral' },
+  paused: { label: 'Paused', tone: 'neutral' },
+};

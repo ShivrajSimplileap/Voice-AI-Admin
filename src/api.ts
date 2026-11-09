@@ -228,7 +228,63 @@ export const api = {
   },
   deleteOrg: (orgId: string, body: { confirmName: string; reason: string }) =>
     call<{ peopleKept: number; peopleDeleted: number; calls: number; leads: number; files: number; filesFailed: number }>('POST', `/orgs/${orgId}/delete`, body),
+
+  // Billing (Razorpay).
+  billing: () => call<BillingOverview>('GET', '/billing'),
+  orgBilling: (orgId: string) => call<OrgBilling>('GET', `/orgs/${orgId}/billing`),
+  startBilling: (orgId: string, email?: string) => call<OrgBilling>('POST', `/orgs/${orgId}/billing/start`, email ? { email } : {}),
+  cancelBilling: (orgId: string, atCycleEnd: boolean) => call<OrgBilling>('POST', `/orgs/${orgId}/billing/cancel`, { atCycleEnd }),
+  refreshBilling: (orgId: string) => call<OrgBilling>('POST', `/orgs/${orgId}/billing/refresh`),
 };
+
+// ---------------------------------------------------------------------------
+// Billing types
+// ---------------------------------------------------------------------------
+export type SubscriptionStatus = 'created' | 'authenticated' | 'active' | 'pending' | 'halted' | 'cancelled' | 'completed' | 'expired' | 'paused';
+
+export interface SubscriptionInfo {
+  id: string;
+  razorpaySubscriptionId: string;
+  status: SubscriptionStatus;
+  shortUrl: string | null;
+  billingEmail: string | null;
+  amount: number;
+  currency: string;
+  currentStart: string | null;
+  currentEnd: string | null;
+  cancelAtCycleEnd: boolean;
+  endedAt: string | null;
+  createdAt: string;
+}
+
+export interface PaymentInfo {
+  id: string;
+  razorpayPaymentId: string;
+  razorpayInvoiceId: string | null;
+  amount: number;
+  currency: string;
+  status: string;
+  method: string | null;
+  failureReason: string | null;
+  paidAt: string;
+}
+
+export interface OrgBilling {
+  enabled: boolean;
+  testMode: boolean;
+  current: SubscriptionInfo | null;
+  subscriptions: SubscriptionInfo[];
+  payments: PaymentInfo[];
+}
+
+export interface BillingOverview {
+  enabled: boolean;
+  testMode: boolean;
+  webhookSecretSet: boolean;
+  totals: { active: number; mrr: number; collectedThisMonth: number; failedPayments30d: number; unmatchedEvents30d: number; waiting: number; troubled: number };
+  subscriptions: (SubscriptionInfo & { orgId: string; orgName: string; planName: string | null })[];
+  payments: (PaymentInfo & { orgId: string | null; orgName: string | null })[];
+}
 
 // ---------------------------------------------------------------------------
 // Phase 5 types
@@ -307,7 +363,7 @@ export interface OrgNote {
 export type UsagePeriod = 'this_month' | 'last_month' | '30d';
 export type LimitKey = 'minutesPerMonth' | 'seats' | 'numbers' | 'agents' | 'activeCampaigns' | 'storageMb';
 export type PlanLimits = Partial<Record<LimitKey, number>>;
-export type PlanStatus = 'trialing' | 'active';
+export type PlanStatus = 'trialing' | 'active' | 'unpaid';
 
 export interface Plan {
   id: string;
@@ -396,6 +452,7 @@ export interface UsageWorkspace {
   numbersCost: number;
   cost: number;
   revenue: number;
+  collected: number;
   margin: number;
 }
 
@@ -403,7 +460,7 @@ export interface UsageReport {
   period: { key: UsagePeriod; from: string; to: string };
   currency: string;
   ratesSet: boolean;
-  totals: { minutes: number; calls: number; tokens: number; phoneCost: number; aiCost: number; numbersCost: number; cost: number; revenue: number; margin: number; paying: number; trialing: number };
+  totals: { minutes: number; calls: number; tokens: number; phoneCost: number; aiCost: number; numbersCost: number; cost: number; revenue: number; collected: number; margin: number; paying: number; trialing: number };
   unattributed: { tokens: number; aiCost: number };
   byKind: { kind: UsageKind; tokens: TokenRates; total: number; cost: number }[];
   byProvider: { provider: string; minutes: number; cost: number }[];

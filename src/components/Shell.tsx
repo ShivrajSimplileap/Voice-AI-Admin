@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Activity, Building2, History, Layers, LayoutGrid, LogOut, Megaphone, Menu, Phone, PhoneCall, Settings, ShieldCheck, UserCog, Users, UsersRound, Wallet, X } from 'lucide-react';
+import { Activity, Building2, CreditCard, History, Layers, LayoutGrid, LogOut, Megaphone, Menu, Phone, PhoneCall, Settings, ShieldCheck, UserCog, Users, UsersRound, Wallet, X } from 'lucide-react';
 import { api, ROLE_LABEL, type AdminRole } from '../api';
 import { Link, usePath } from '../router';
 import { useInterval, useLoad } from './data';
@@ -21,6 +21,7 @@ export const NAV: NavItem[] = [
   { to: '/calls', label: 'Calls', icon: <PhoneCall className="size-[18px]" />, roles: ALL },
   { to: '/numbers', label: 'Phone numbers', icon: <Phone className="size-[18px]" />, roles: ALL },
   { to: '/usage', label: 'Usage and cost', icon: <Wallet className="size-[18px]" />, roles: ALL },
+  { to: '/billing', label: 'Billing', icon: <CreditCard className="size-[18px]" />, roles: ALL },
   { to: '/plans', label: 'Plans', icon: <Layers className="size-[18px]" />, roles: ALL },
   { to: '/compliance', label: 'Compliance', icon: <ShieldCheck className="size-[18px]" />, roles: ALL },
   { to: '/announcements', label: 'Announcements', icon: <Megaphone className="size-[18px]" />, roles: ALL },

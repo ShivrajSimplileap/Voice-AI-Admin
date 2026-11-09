@@ -12,6 +12,7 @@ import { NumbersPage } from './pages/NumbersPage';
 import { HealthPage } from './pages/HealthPage';
 import { UsagePage } from './pages/UsagePage';
 import { PlansPage } from './pages/PlansPage';
+import { BillingPage } from './pages/BillingPage';
 import { CompliancePage } from './pages/CompliancePage';
 import { AnnouncementsPage } from './pages/AnnouncementsPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -34,6 +35,7 @@ const SIGNED_IN_PAGES: Partial<Record<string, () => React.JSX.Element>> = {
   '/numbers': NumbersPage,
   '/usage': UsagePage,
   '/plans': PlansPage,
+  '/billing': BillingPage,
   '/compliance': CompliancePage,
   '/announcements': AnnouncementsPage,
   '/settings': SettingsPage,
