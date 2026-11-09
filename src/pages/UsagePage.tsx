@@ -124,6 +124,8 @@ function UsageBody({ r, sort, dir, onSort, onRates }: { r: UsageReport; sort: So
                 {w.plan}
                 {w.planStatus === 'trialing' ? ` · trial${w.trialEndsAt ? (new Date(w.trialEndsAt) < new Date() ? ' ended' : ` until ${new Date(w.trialEndsAt).toLocaleDateString()}`) : ''}` : ''}
               </>
+            ) : w.planStatus === 'free' ? (
+              <span className={w.freeLeft === 0 ? 'text-bad' : undefined}>Free minutes · {fmtNum(w.freeLeft ?? 0)} left</span>
             ) : (
               'No plan'
             )}

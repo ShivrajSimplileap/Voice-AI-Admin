@@ -200,6 +200,9 @@ export const api = {
   updatePlan: (id: string, body: Partial<PlanInput>) => call<Plan>('PATCH', `/plans/${id}`, body),
   archivePlan: (id: string, archived: boolean) => call<Plan>('POST', `/plans/${id}/${archived ? 'archive' : 'restore'}`),
   orgPlan: (id: string) => call<OrgPlan>('GET', `/orgs/${id}/plan`),
+  creditSettings: () => call<{ freeMinutes: number }>('GET', '/credits/settings'),
+  setCreditSettings: (freeMinutes: number) => call<{ freeMinutes: number }>('PUT', '/credits/settings', { freeMinutes }),
+  orgCredits: (id: string) => call<FreeMinutes & { history: { id: string; minutes: number; callId: string | null; createdAt: string }[] }>('GET', `/orgs/${id}/credits`),
   setOrgPlan: (id: string, body: OrgPlanInput) => call<OrgPlan>('PUT', `/orgs/${id}/plan`, body),
 
   // Phase 5: extras.
@@ -364,7 +367,15 @@ export interface OrgNote {
 export type UsagePeriod = 'this_month' | 'last_month' | '30d';
 export type LimitKey = 'minutesPerMonth' | 'seats' | 'numbers' | 'agents' | 'activeCampaigns' | 'storageMb';
 export type PlanLimits = Partial<Record<LimitKey, number>>;
-export type PlanStatus = 'trialing' | 'active' | 'unpaid';
+export type PlanStatus = 'trialing' | 'active' | 'unpaid' | 'free';
+
+/** Free minutes (one platform-wide number) for a workspace without a plan. */
+export interface FreeMinutes {
+  applies: boolean;
+  freeMinutes: number;
+  used: number;
+  left: number;
+}
 
 export interface Plan {
   id: string;
@@ -398,6 +409,7 @@ export interface OrgPlan {
   overrides: PlanLimits;
   limits: PlanLimits;
   usage: Record<LimitKey, number>;
+  credits: FreeMinutes;
   cost?: OrgMonthCost | null;
 }
 
@@ -455,6 +467,7 @@ export interface UsageWorkspace {
   numbersCost: number;
   cost: number;
   revenue: number;
+  freeLeft: number | null;
   collected: number;
   margin: number;
 }

@@ -19,6 +19,7 @@ export function WorkspacePlan({ orgId }: { orgId: string }) {
 }
 
 function trialBadge(p: OrgPlan) {
+  if (!p.plan && p.status === 'free') return p.credits.left > 0 ? <Badge tone="blue">Free minutes</Badge> : <Badge tone="bad">Free minutes used up · calls paused</Badge>;
   if (!p.plan) return <Badge>No plan</Badge>;
   if (p.status === 'active') return <Badge tone="good">Active</Badge>;
   if (p.status === 'unpaid') return <Badge tone="bad">Unpaid · calls paused</Badge>;
@@ -39,7 +40,7 @@ function PlanView({ orgId, p, plans, onChanged }: { orgId: string; p: OrgPlan; p
   const [busy, setBusy] = useState<string | null>(null);
 
   const [planId, setPlanId] = useState(p.plan?.id ?? '');
-  const [status, setStatus] = useState<PlanStatus>(p.status ?? 'active');
+  const [status, setStatus] = useState<PlanStatus>(p.status && p.status !== 'free' ? p.status : 'active');
   const [trialEnd, setTrialEnd] = useState(dateInput(p.trialEndsAt));
   const [overrides, setOverrides] = useState<Record<string, string>>(() =>
     Object.fromEntries(LIMITS.filter((l) => l.key !== 'numbers').map((l) => [l.key, p.overrides[l.key] !== undefined ? String(p.overrides[l.key]) : '']))
@@ -97,7 +98,7 @@ function PlanView({ orgId, p, plans, onChanged }: { orgId: string; p: OrgPlan; p
             <div>
               <h3 className="text-[15px] font-bold">Plan</h3>
               <p className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-                <span className="font-semibold">{p.plan?.name ?? 'No plan: no limits'}</span>
+                <span className="font-semibold">{p.plan?.name ?? (p.status === 'free' ? 'No plan' : 'No plan: no limits')}</span>
                 {trialBadge(p)}
               </p>
               {p.plan ? <p className="mt-1 text-[13px] text-muted">{money(p.plan.priceMonthly)} a month</p> : null}
@@ -191,6 +192,16 @@ function PlanView({ orgId, p, plans, onChanged }: { orgId: string; p: OrgPlan; p
         </Card>
 
         <div className="space-y-4">
+          {p.credits.applies ? (
+            <Card className="p-5">
+              <h3 className="text-[15px] font-bold">Free minutes</h3>
+              <p className="mt-1 text-[13px] text-muted">Every workspace without a plan gets {fmtNum(p.credits.freeMinutes)} free call minutes (set on the Plans page).</p>
+              <div className="mt-3">
+                <Meter used={p.credits.used} limit={p.credits.freeMinutes} unit="min" />
+              </div>
+              <p className="mt-2 text-[13px]">{p.credits.left > 0 ? `${fmtNum(p.credits.left)} minutes left.` : 'Used up: calls are paused until it chooses a plan.'}</p>
+            </Card>
+          ) : null}
           <WorkspaceBilling orgId={orgId} plan={p} onChanged={onChanged} />
           <Card className="p-5">
             <h3 className="text-[15px] font-bold">Use against limits</h3>

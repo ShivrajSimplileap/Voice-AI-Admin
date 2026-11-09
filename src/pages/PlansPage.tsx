@@ -33,6 +33,7 @@ export function PlansPage() {
           <Alert tone={notice.tone}>{notice.text}</Alert>
         </div>
       ) : null}
+      <FreeMinutesCard />
       <Loaded state={state}>
         {([{ data, unplanned }, rates]) => {
           const money = (n: number) => fmtMoney(n, rates.currency);
@@ -109,7 +110,7 @@ export function PlansPage() {
                 </div>
               )}
               <p className="mt-4 px-1 text-[13px] text-muted">
-                {fmtNum(unplanned)} workspace{unplanned === 1 ? ' has' : 's have'} no plan (no limits).
+                {fmtNum(unplanned)} workspace{unplanned === 1 ? ' has' : 's have'} no plan: they use the free minutes above (no limits while those are off).
               </p>
             </>
           );
@@ -148,6 +149,83 @@ export function PlansPage() {
         />
       ) : null}
     </>
+  );
+}
+
+/** One platform-wide number: free call minutes for every workspace without a plan. */
+function FreeMinutesCard() {
+  const canEdit = useAdmin().role === 'super_admin';
+  const state = useLoad(() => api.creditSettings(), []);
+  const [value, setValue] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const current = state.data?.freeMinutes ?? 0;
+  const draft = value ?? String(current);
+  const n = Number(draft);
+  const valid = /^\d+$/.test(draft.trim()) && n <= 100_000;
+  const changed = valid && n !== current;
+
+  async function save() {
+    setBusy(true);
+    setNotice(null);
+    try {
+      await api.setCreditSettings(n);
+      await state.reload();
+      setValue(null);
+      setNotice({ tone: 'good', text: n > 0 ? `Saved. Every workspace without a plan now has ${fmtNum(n)} free minutes in all.` : 'Free minutes are off: workspaces without a plan have no limits.' });
+    } catch (err) {
+      setNotice({ tone: 'bad', text: err instanceof Error ? err.message : 'Couldn’t save.' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="mb-6 p-5">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="max-w-xl">
+          <h3 className="flex items-center gap-2 text-[15px] font-bold">
+            Free minutes {current > 0 ? <Badge tone="good">{fmtNum(current)} min</Badge> : <Badge>Off</Badge>}
+          </h3>
+          <p className="mt-1 text-sm text-muted">
+            Every workspace without a plan, new or existing, gets this many free call minutes in all. When they’re used up, its calls pause until it chooses a plan.
+            Changing the number applies to every workspace straight away. 0 turns it off: workspaces without a plan then have no limits.
+          </p>
+        </div>
+        {canEdit ? (
+          <div className="flex items-end gap-2">
+            <label className="space-y-1.5">
+              <span className="block text-[13px] font-semibold text-ink-2">Minutes</span>
+              <input
+                value={draft}
+                inputMode="numeric"
+                onChange={(e) => setValue(e.target.value.replace(/[^\d]/g, ''))}
+                className="h-11 w-32 rounded-2xl bg-soft px-4 text-sm tabular-nums outline-none ring-1 ring-transparent focus:bg-white focus:ring-blue/60"
+                aria-label="Free minutes for every workspace without a plan"
+              />
+            </label>
+            <Button busy={busy} disabled={!changed} onClick={() => (current === 0 && n > 0 ? setConfirming(true) : void save())}>
+              Save
+            </Button>
+          </div>
+        ) : null}
+      </div>
+      {notice ? (
+        <div className="mt-3">
+          <Alert tone={notice.tone}>{notice.text}</Alert>
+        </div>
+      ) : null}
+      {confirming ? (
+        <Confirm
+          title={`Turn on ${fmtNum(n)} free minutes?`}
+          body={<p>Workspaces without a plan, including existing ones that have no limits today, will be limited to {fmtNum(n)} call minutes in all, then need a plan to keep calling. Workspaces on a plan aren’t affected.</p>}
+          confirmLabel="Turn on"
+          onConfirm={save}
+          onClose={() => setConfirming(false)}
+        />
+      ) : null}
+    </Card>
   );
 }
 
