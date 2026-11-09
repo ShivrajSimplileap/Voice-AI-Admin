@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+/* Soft UI tokens (same brand as the Voice CRM: docs/soft-ui-brand-guidelines.md). */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-canvas: #f6f8fa;
+  --color-surface: #ffffff;
+  --color-soft: #f3f5f8;
+  --color-ink: #1a1c1e;
+  --color-ink-2: #3f4550;
+  --color-muted: #6b7280;
+  --color-muted-2: #9aa3b2;
+  --color-line: #e5e7eb;
+  --color-accent: #ff4d2d;
+  --color-accent-soft: #ffe8e3;
+  --color-blue: #6d84c7;
+  --color-blue-soft: #e9eef8;
+  --color-navy: #2b3348;
+  --color-good: #059669;
+  --color-good-soft: #e6f6f0;
+  --color-bad: #dc2626;
+  --color-bad-soft: #fdecec;
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px -12px rgba(16, 24, 40, 0.12);
+  --shadow-pop: 0 24px 60px -20px rgba(16, 24, 40, 0.35);
+}
+
+html {
+  color-scheme: light;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-size: 14px;
+}
+
+@layer base {
+  button,
+  a[href],
+  select,
+  [role='button'] {
+    cursor: pointer;
+  }
+  :disabled {
+    cursor: not-allowed;
+  }
+}
+
+::selection {
+  background: var(--color-accent-soft);
+}

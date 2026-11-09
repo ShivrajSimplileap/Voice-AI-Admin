@@ -1,0 +1,38 @@
+{
+	admin off
+	servers {
+		# Railway's edge proxy sits in front; keep the client IP it forwards.
+		trusted_proxies static private_ranges 100.64.0.0/10
+	}
+}
+
+:{$PORT:8080} {
+	encode zstd gzip
+
+	# Only the admin API is reachable through this portal.
+	handle /api/admin/* {
+		reverse_proxy {$BACKEND_URL}
+	}
+
+	handle /api/* {
+		respond 404
+	}
+
+	handle {
+		root * /srv
+		@hashed path /assets/*
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		@shell not path /assets/*
+		header @shell Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+}
