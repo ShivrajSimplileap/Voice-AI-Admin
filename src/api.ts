@@ -689,7 +689,7 @@ export interface PlatformNumber {
   org: { id: string; name: string; slug: string } | null;
   agentName: string | null;
   /** purchased: a workspace bought it in the CRM (charged monthly); platform: added here. */
-  source: 'platform' | 'purchased';
+  source: 'platform' | 'purchased' | 'imported';
   monthlyPrice: number | null;
   purchasedAt: string | null;
 }

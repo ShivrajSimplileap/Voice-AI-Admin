@@ -40,7 +40,7 @@ export function NumbersPage() {
       key: 'org',
       label: 'Workspace',
       render: (n) =>
-        canAct && n.source !== 'purchased' ? (
+        canAct && n.source === 'platform' ? (
           <select
             aria-label={`Workspace of ${n.number}`}
             value={n.org?.id ?? ''}
@@ -69,6 +69,11 @@ export function NumbersPage() {
           <span className="whitespace-nowrap">
             <Badge tone="good">Bought</Badge>
             <span className="ml-1.5 text-[12px] text-muted">{n.monthlyPrice !== null ? `${n.monthlyPrice}/mo` : ''}</span>
+          </span>
+        ) : n.source === 'imported' ? (
+          <span className="whitespace-nowrap">
+            <Badge tone="blue">Imported</Badge>
+            <span className="ml-1.5 text-[12px] text-muted">their own account</span>
           </span>
         ) : (
           <span className="text-muted">Added here</span>
