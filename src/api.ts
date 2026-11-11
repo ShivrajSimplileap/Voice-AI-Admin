@@ -164,7 +164,7 @@ export const api = {
   callRecording: async (id: string) => (await send('GET', `/calls/${id}/recording`)).blob(),
   retryAnalysis: (id: string) => call<CallRow>('POST', `/calls/${id}/retry-analysis`),
   numbers: () => call<{ data: PlatformNumber[] }>('GET', '/numbers'),
-  numberSelling: () => call<{ settings: NumberSelling; providers: NumberProvider[] }>('GET', '/numbers/selling'),
+  numberSelling: () => call<{ settings: NumberSelling; providers: NumberProvider[]; currency: string }>('GET', '/numbers/selling'),
   subAccount: (orgId: string) => call<{ subAccount: SubAccount | null }>('GET', `/orgs/${orgId}/sub-account`),
   createSubAccount: (orgId: string, body: { kycMode: 'personal_use' | 'customer_use'; businessType?: string; email?: string }) =>
     call<{ subAccount: SubAccount; notMoved: { e164: string; reason: string }[] }>('POST', `/orgs/${orgId}/sub-account`, body),
@@ -173,7 +173,7 @@ export const api = {
   refreshKyc: (orgId: string) => call<{ subAccount: SubAccount | null }>('POST', `/orgs/${orgId}/sub-account/kyc/refresh`),
   phoneAccount: () => call<PhoneAccount>('GET', '/phone-account'),
   setPhoneAccount: (settings: { lowBalanceThreshold: number | null }) => call<PhoneAccount>('PUT', '/phone-account/settings', settings),
-  setNumberSelling: (settings: NumberSelling) => call<{ settings: NumberSelling; providers: { id: string; name: string; configured: boolean }[] }>('PUT', '/numbers/selling', settings),
+  setNumberSelling: (settings: NumberSelling) => call<{ settings: NumberSelling; providers: NumberProvider[]; currency: string }>('PUT', '/numbers/selling', settings),
   addNumber: (body: { provider: string; number: string; label: string; orgId: string | null }) => call<{ data: PlatformNumber[] }>('POST', '/numbers', body),
   assignNumber: (id: string, orgId: string | null) => call<{ data: PlatformNumber[] }>('PATCH', `/numbers/${id}`, { orgId }),
   health: () => call<Health>('GET', '/health'),
@@ -707,9 +707,7 @@ export interface NumberSelling {
   providers: string[];
   countries: string[];
   types: ('local' | 'mobile' | 'tollfree')[];
-  price: number;
-  countryPrices: Record<string, number>;
-  /** Charged once when a number is bought (0 = none). */
+  /** Our one-time setup fee per number, in Vobiz's currency (0 = none). The monthly rent is Vobiz's price. */
   setupPrice: number;
 }
 
