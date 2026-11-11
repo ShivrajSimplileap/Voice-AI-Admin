@@ -20,7 +20,7 @@ export function WorkspacePlan({ orgId }: { orgId: string }) {
 
 function trialBadge(p: OrgPlan) {
   if (!p.plan && p.status === 'free') return p.credits.left > 0 ? <Badge tone="blue">Free minutes</Badge> : <Badge tone="bad">Free minutes used up · calls paused</Badge>;
-  if (!p.plan) return <Badge>No plan</Badge>;
+  if (!p.plan) return <Badge tone="bad">No plan · calls off</Badge>;
   if (p.status === 'active') return <Badge tone="good">Active</Badge>;
   if (p.status === 'unpaid') return <Badge tone="bad">Unpaid · calls paused</Badge>;
   const ends = p.trialEndsAt ? new Date(p.trialEndsAt) : null;
@@ -98,7 +98,7 @@ function PlanView({ orgId, p, plans, onChanged }: { orgId: string; p: OrgPlan; p
             <div>
               <h3 className="text-[15px] font-bold">Plan</h3>
               <p className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-                <span className="font-semibold">{p.plan?.name ?? (p.status === 'free' ? 'No plan' : 'No plan: no limits')}</span>
+                <span className="font-semibold">{p.plan?.name ?? (p.status === 'free' ? 'No plan' : 'No plan: can’t call')}</span>
                 {trialBadge(p)}
               </p>
               {p.plan ? <p className="mt-1 text-[13px] text-muted">{money(p.plan.priceMonthly)} a month</p> : null}
@@ -141,7 +141,7 @@ function PlanView({ orgId, p, plans, onChanged }: { orgId: string; p: OrgPlan; p
                       setTrialEnd(end.toISOString().slice(0, 10));
                     }
                   }}
-                  options={[{ value: '', label: 'No plan (no limits)' }, ...choosable.map((x) => ({ value: x.id, label: `${x.name}${x.archived ? ' (archived)' : ''}` }))]}
+                  options={[{ value: '', label: 'No plan' }, ...choosable.map((x) => ({ value: x.id, label: `${x.name}${x.archived ? ' (archived)' : ''}` }))]}
                 />
                 {planId ? (
                   <SelectField

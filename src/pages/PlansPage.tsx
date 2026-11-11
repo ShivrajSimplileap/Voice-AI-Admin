@@ -43,7 +43,7 @@ export function PlansPage() {
                 <Card className="p-8 text-center">
                   <p className="font-semibold">No plans yet</p>
                   <p className="mx-auto mt-1 max-w-md text-sm text-muted">
-                    Without a plan a workspace has no limits. Create plans, mark one as the default for new sign-ups, and assign plans to existing workspaces.
+                    A workspace without a plan can only call on free minutes (above). Create plans, offer them in the CRM, mark one as the default for new sign-ups, and assign plans to existing workspaces.
                   </p>
                 </Card>
               ) : (
@@ -110,7 +110,7 @@ export function PlansPage() {
                 </div>
               )}
               <p className="mt-4 px-1 text-[13px] text-muted">
-                {fmtNum(unplanned)} workspace{unplanned === 1 ? ' has' : 's have'} no plan: they use the free minutes above (no limits while those are off).
+                {fmtNum(unplanned)} workspace{unplanned === 1 ? ' has' : 's have'} no plan: they can call only on the free minutes above (none while those are off).
               </p>
             </>
           );
@@ -173,7 +173,7 @@ function FreeMinutesCard() {
       await api.setCreditSettings(n);
       await state.reload();
       setValue(null);
-      setNotice({ tone: 'good', text: n > 0 ? `Saved. Every workspace without a plan now has ${fmtNum(n)} free minutes in all.` : 'Free minutes are off: workspaces without a plan have no limits.' });
+      setNotice({ tone: 'good', text: n > 0 ? `Saved. Every workspace without a plan now has ${fmtNum(n)} free minutes in all.` : 'Free minutes are off: workspaces without a plan can’t call until they have one.' });
     } catch (err) {
       setNotice({ tone: 'bad', text: err instanceof Error ? err.message : 'Couldn’t save.' });
     } finally {
@@ -190,7 +190,7 @@ function FreeMinutesCard() {
           </h3>
           <p className="mt-1 text-sm text-muted">
             Every workspace without a plan, new or existing, gets this many free call minutes in all. When they’re used up, its calls pause until it chooses a plan.
-            Changing the number applies to every workspace straight away. 0 turns it off: workspaces without a plan then have no limits.
+            Changing the number applies to every workspace straight away. 0 turns it off: workspaces without a plan then can’t call, use browser voice or add knowledge until they have a plan.
           </p>
         </div>
         {canEdit ? (
@@ -219,7 +219,7 @@ function FreeMinutesCard() {
       {confirming ? (
         <Confirm
           title={`Turn on ${fmtNum(n)} free minutes?`}
-          body={<p>Workspaces without a plan, including existing ones that have no limits today, will be limited to {fmtNum(n)} call minutes in all, then need a plan to keep calling. Workspaces on a plan aren’t affected.</p>}
+          body={<p>Every workspace without a plan, new or existing, will get {fmtNum(n)} call minutes in all, then need a plan to keep calling. Workspaces on a plan aren’t affected.</p>}
           confirmLabel="Turn on"
           onConfirm={save}
           onClose={() => setConfirming(false)}
