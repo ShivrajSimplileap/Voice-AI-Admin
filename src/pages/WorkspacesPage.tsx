@@ -6,6 +6,7 @@ import { Alert, Badge, Button, Card, PageHeader, cx, fullTime, timeAgo } from '.
 import { useAdmin } from '../session';
 import { PauseModal, WorkspaceControls } from './WorkspaceControls';
 import { WorkspacePlan } from './WorkspacePlan';
+import { WorkspaceSubAccount } from './WorkspaceSubAccount';
 import { WorkspaceData, WorkspaceNotes } from './WorkspaceNotes';
 import { StatTile } from '../components/charts';
 import {
@@ -182,7 +183,12 @@ export function WorkspaceDetailPage({ id }: { id: string }) {
             {tab === 'Members' ? <OrgMembers o={o} /> : null}
             {tab === 'Agents' ? <OrgAgents o={o} /> : null}
             {tab === 'Campaigns' ? <OrgCampaigns o={o} onChanged={state.reload} /> : null}
-            {tab === 'Numbers' ? <OrgNumbers o={o} /> : null}
+            {tab === 'Numbers' ? (
+              <div className="space-y-4">
+                <WorkspaceSubAccount orgId={o.id} />
+                <OrgNumbers o={o} />
+              </div>
+            ) : null}
             {tab === 'Calls' ? <OrgCalls o={o} /> : null}
             {tab === 'Activity' ? <OrgActivity o={o} /> : null}
           </>

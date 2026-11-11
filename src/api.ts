@@ -165,6 +165,12 @@ export const api = {
   retryAnalysis: (id: string) => call<CallRow>('POST', `/calls/${id}/retry-analysis`),
   numbers: () => call<{ data: PlatformNumber[] }>('GET', '/numbers'),
   numberSelling: () => call<{ settings: NumberSelling; providers: NumberProvider[] }>('GET', '/numbers/selling'),
+  subAccount: (orgId: string) => call<{ subAccount: SubAccount | null }>('GET', `/orgs/${orgId}/sub-account`),
+  createSubAccount: (orgId: string, body: { kycMode: 'personal_use' | 'customer_use'; businessType?: string; email?: string }) =>
+    call<{ subAccount: SubAccount; notMoved: { e164: string; reason: string }[] }>('POST', `/orgs/${orgId}/sub-account`, body),
+  removeSubAccount: (orgId: string) => call<{ numbersMoved: number; stuck: { e164: string; reason: string }[] }>('DELETE', `/orgs/${orgId}/sub-account`),
+  sendKycEmail: (orgId: string, email?: string) => call<{ emailedTo: string; subAccount: SubAccount }>('POST', `/orgs/${orgId}/sub-account/kyc/email`, email ? { email } : {}),
+  refreshKyc: (orgId: string) => call<{ subAccount: SubAccount | null }>('POST', `/orgs/${orgId}/sub-account/kyc/refresh`),
   phoneAccount: () => call<PhoneAccount>('GET', '/phone-account'),
   setPhoneAccount: (settings: { lowBalanceThreshold: number | null }) => call<PhoneAccount>('PUT', '/phone-account/settings', settings),
   setNumberSelling: (settings: NumberSelling) => call<{ settings: NumberSelling; providers: { id: string; name: string; configured: boolean }[] }>('PUT', '/numbers/selling', settings),
@@ -736,6 +742,21 @@ export type PhoneAccount =
       concurrent: { now: number | null; max: number | null; utilization: number | null };
       transactions: { id: string; type: string; amount: number; currency: string; description: string; kind: string; status: string; at: string }[];
     };
+
+/** A workspace's Vobiz sub-account. kycStatus: covered (platform KYC) | not_started | pending | verified | failed. */
+export interface SubAccount {
+  id: string;
+  authId: string;
+  createdAt: string;
+  numbers: number;
+  kycMode: 'personal_use' | 'customer_use';
+  businessType: string | null;
+  email: string | null;
+  kycStatus: string;
+  callsBlocked: boolean;
+  verifications: Record<string, string>;
+  checkedAt: string | null;
+}
 
 export interface Health {
   services: { key: string; name: string; status: 'ok' | 'warn' | 'down' | 'off'; detail: string; ms?: number }[];
