@@ -165,6 +165,8 @@ export const api = {
   retryAnalysis: (id: string) => call<CallRow>('POST', `/calls/${id}/retry-analysis`),
   numbers: () => call<{ data: PlatformNumber[] }>('GET', '/numbers'),
   numberSelling: () => call<{ settings: NumberSelling; providers: NumberProvider[] }>('GET', '/numbers/selling'),
+  phoneAccount: () => call<PhoneAccount>('GET', '/phone-account'),
+  setPhoneAccount: (settings: { lowBalanceThreshold: number | null }) => call<PhoneAccount>('PUT', '/phone-account/settings', settings),
   setNumberSelling: (settings: NumberSelling) => call<{ settings: NumberSelling; providers: { id: string; name: string; configured: boolean }[] }>('PUT', '/numbers/selling', settings),
   addNumber: (body: { provider: string; number: string; label: string; orgId: string | null }) => call<{ data: PlatformNumber[] }>('POST', '/numbers', body),
   assignNumber: (id: string, orgId: string | null) => call<{ data: PlatformNumber[] }>('PATCH', `/numbers/${id}`, { orgId }),
@@ -712,6 +714,28 @@ export interface NumberProvider {
   configured: boolean;
   verified: boolean | null;
 }
+
+/** The platform's Vobiz account (admin portal → Phone numbers). */
+export type PhoneAccount =
+  | { configured: false; settings: { lowBalanceThreshold: number | null } }
+  | {
+      configured: true;
+      reachable: boolean;
+      settings: { lowBalanceThreshold: number | null };
+      currency: string;
+      balance: number | null;
+      available: number | null;
+      postpaid: boolean;
+      vobizThreshold: number | null;
+      threshold: number | null;
+      low: boolean;
+      alertedAt: string | null;
+      verified: boolean | null;
+      trial: boolean | null;
+      callsPerSecond: number | null;
+      concurrent: { now: number | null; max: number | null; utilization: number | null };
+      transactions: { id: string; type: string; amount: number; currency: string; description: string; kind: string; status: string; at: string }[];
+    };
 
 export interface Health {
   services: { key: string; name: string; status: 'ok' | 'warn' | 'down' | 'off'; detail: string; ms?: number }[];

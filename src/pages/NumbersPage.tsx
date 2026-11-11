@@ -1,10 +1,10 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { Plus } from 'lucide-react';
-import { api, type NumberProvider, type NumberSelling, type PlatformNumber } from '../api';
+import { api, type NumberProvider, type NumberSelling, type PhoneAccount, type PlatformNumber } from '../api';
 import { useTitle } from '../router';
 import { useAdmin } from '../session';
 import { Alert, Badge, Button, Card, Confirm, Modal, PageHeader, SelectField, TextField, Toggle } from '../components/ui';
-import { FilterBar, FilterSelect, Loaded, SearchBox, Table, useLoad, useQueryState, type Column } from '../components/data';
+import { FilterBar, FilterSelect, fmtMoney, Loaded, SearchBox, Table, useLoad, useQueryState, type Column } from '../components/data';
 
 /** The platform's phone numbers and which workspace each belongs to. */
 export function NumbersPage() {
@@ -99,6 +99,7 @@ export function NumbersPage() {
           <Alert tone="good">{notice}</Alert>
         </div>
       ) : null}
+      <PhoneAccountCard />
       <SellingCard />
       <FilterBar>
         <SearchBox value={f.q} onChange={(q) => set({ q })} placeholder="Search number, label or workspace" />
@@ -191,6 +192,137 @@ function AddNumberModal({ orgs, onClose, onAdded }: { orgs: { id: string; name: 
 
 const COUNTRY_HINT = 'Two-letter codes, comma-separated (e.g. US, GB, CA). Blank: the CRM offers US, GB, CA, AU, SG and IN.';
 const TYPE_LABEL: Record<string, string> = { local: 'Local', mobile: 'Mobile', tollfree: 'Toll-free' };
+
+/** The platform's Vobiz account: balance, capacity, KYC, recent transactions and the low-balance alert level. */
+function PhoneAccountCard() {
+  const state = useLoad(() => api.phoneAccount(), []);
+  return <Loaded state={state}>{(a) => <PhoneAccountView key={String(a.settings.lowBalanceThreshold)} account={a} onSaved={state.reload} />}</Loaded>;
+}
+
+function PhoneAccountView({ account: a, onSaved }: { account: PhoneAccount; onSaved: () => Promise<void> }) {
+  const canEdit = useAdmin().role === 'super_admin';
+  const [threshold, setThreshold] = useState(a.settings.lowBalanceThreshold === null ? '' : String(a.settings.lowBalanceThreshold));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const bad = threshold.trim() !== '' && !/^\d+(\.\d{1,2})?$/.test(threshold.trim());
+
+  if (!a.configured) {
+    return (
+      <Card className="mb-4 p-5">
+        <h3 className="text-[15px] font-bold">Vobiz account</h3>
+        <p className="mt-1 text-sm text-muted">Not set up: add VOBIZ_AUTH_ID and VOBIZ_AUTH_TOKEN to the backend.</p>
+      </Card>
+    );
+  }
+  const money = (n: number | null) => (n === null ? '—' : fmtMoney(n, a.currency));
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.setPhoneAccount({ lowBalanceThreshold: threshold.trim() === '' ? null : Number(threshold) });
+      await onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Couldn’t save.');
+      setBusy(false);
+    }
+  }
+
+  const tx = showAll ? a.transactions : a.transactions.slice(0, 5);
+  return (
+    <Card className="mb-4 p-5">
+      <h3 className="flex flex-wrap items-center gap-2 text-[15px] font-bold">
+        Vobiz account
+        {a.verified === true ? <Badge tone="good">KYC verified</Badge> : a.verified === false ? <Badge tone="bad">KYC pending</Badge> : null}
+        {a.trial ? <Badge tone="accent">Trial</Badge> : null}
+        {a.low ? <Badge tone="bad">Low balance</Badge> : null}
+      </h3>
+      {!a.reachable ? (
+        <div className="mt-3">
+          <Alert>Couldn’t reach Vobiz with the keys on the backend.</Alert>
+        </div>
+      ) : null}
+      {a.low ? (
+        <div className="mt-3">
+          <Alert>
+            The available balance is below {money(a.threshold)}. When it runs out, calls stop and numbers can’t be bought. Top up in the Vobiz console.
+            {a.alertedAt ? ' Admins were emailed.' : ''}
+          </Alert>
+        </div>
+      ) : null}
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Available balance" value={money(a.available)} hint={a.balance !== a.available ? `Balance ${money(a.balance)}` : a.postpaid ? 'Postpaid' : undefined} />
+        <Stat label="Alert below" value={money(a.threshold)} hint={a.settings.lowBalanceThreshold === null ? 'Vobiz’s own level' : 'Set here'} />
+        <Stat
+          label="Calls right now"
+          value={a.concurrent.now === null ? '—' : `${a.concurrent.now}${a.concurrent.max ? ` of ${a.concurrent.max}` : ''}`}
+          hint={a.concurrent.utilization === null ? undefined : `${a.concurrent.utilization}% of capacity`}
+        />
+        <Stat label="New calls per second" value={a.callsPerSecond === null ? '—' : String(a.callsPerSecond)} hint="Vobiz’s limit for this account" />
+      </div>
+
+      <div className="mt-5">
+        <p className="mb-2 text-[13px] font-semibold text-ink-2">Recent transactions</p>
+        {a.transactions.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-sm">
+              <tbody className="divide-y divide-line">
+                {tx.map((t) => (
+                  <tr key={t.id}>
+                    <td className="py-2 pr-3 text-muted tabular-nums">{new Date(t.at).toLocaleString()}</td>
+                    <td className="py-2 pr-3">{t.description || t.kind || t.type}</td>
+                    <td className="py-2 pr-3 text-muted">{t.kind}</td>
+                    <td className={`py-2 text-right font-semibold tabular-nums ${t.type === 'credit' ? 'text-good' : ''}`}>
+                      {t.type === 'credit' ? '+' : '−'}
+                      {fmtMoney(Math.abs(t.amount), t.currency || a.currency)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {a.transactions.length > 5 ? (
+              <button type="button" className="mt-2 text-sm font-semibold underline" onClick={() => setShowAll(!showAll)}>
+                {showAll ? 'Show fewer' : `Show all ${a.transactions.length}`}
+              </button>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-sm text-muted">No transactions yet.</p>
+        )}
+      </div>
+
+      {canEdit ? (
+        <div className="mt-5 flex flex-wrap items-end gap-3">
+          <div className="w-full max-w-xs">
+            <TextField
+              label={`Email admins when the balance drops below (${a.currency})`}
+              value={threshold}
+              inputMode="decimal"
+              placeholder={a.vobizThreshold === null ? 'e.g. 1000' : `Vobiz’s level: ${a.vobizThreshold}`}
+              onChange={(e) => setThreshold(e.target.value)}
+              hint="Empty: use Vobiz’s own low-balance level. Checked every 15 minutes."
+              error={bad ? 'Enter an amount, or leave it empty.' : error ?? undefined}
+            />
+          </div>
+          <Button busy={busy} disabled={bad} onClick={() => void save()}>
+            Save
+          </Button>
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="rounded-2xl bg-soft px-4 py-3">
+      <p className="text-[12px] font-semibold text-muted">{label}</p>
+      <p className="mt-0.5 text-lg font-bold tabular-nums">{value}</p>
+      {hint ? <p className="text-[12px] text-muted">{hint}</p> : null}
+    </div>
+  );
+}
 
 /** Selling numbers in the CRM: which providers, countries and kinds, and the monthly price. */
 function SellingCard() {
