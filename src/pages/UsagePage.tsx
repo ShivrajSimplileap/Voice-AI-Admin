@@ -158,7 +158,7 @@ function UsageBody({ r, sort, dir, onSort, onRates }: { r: UsageReport; sort: So
         <Alert tone="info">
           Phone rates aren’t set yet, so costs below count AI only.{' '}
           <button type="button" onClick={onRates} className="font-semibold underline">
-            Set the Sinch and Plivo per-minute rates
+            Set the Vobiz per-minute rate
           </button>
           .
         </Alert>
@@ -287,7 +287,7 @@ function RatesTab() {
 function RatesForm({ initial, onSaved }: { initial: Rates & { isDefault: boolean }; onSaved: () => Promise<void> }) {
   const canEdit = useAdmin().role === 'super_admin';
   const { isDefault, ...start } = initial;
-  const [rates, setRates] = useState<Rates>({ ...start, phonePerMinute: { sinch: 0, plivo: 0, ...start.phonePerMinute } });
+  const [rates, setRates] = useState<Rates>({ ...start, phonePerMinute: { vobiz: start.phonePerMinute.vobiz ?? 0 } });
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null);
 
@@ -320,7 +320,7 @@ function RatesForm({ initial, onSaved }: { initial: Rates & { isDefault: boolean
       {!canEdit ? <Alert tone="info">Only super admins can change rates.</Alert> : null}
       {isDefault ? (
         <Alert tone="info">
-          These are starting values: Google’s published per-million-token prices in USD, and no phone rates. Check them against your Google, Sinch and Plivo bills, then save.
+          These are starting values: Google’s published per-million-token prices in USD, and no phone rates. Check them against your Google and Vobiz bills, then save.
         </Alert>
       ) : null}
 

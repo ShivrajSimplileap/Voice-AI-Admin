@@ -85,7 +85,7 @@ export function NumbersPage() {
     <>
       <PageHeader
         title="Phone numbers"
-        subtitle="Numbers on the platform’s Sinch or Plivo accounts: ones you add (each workspace’s plan includes one, picked from the free ones) and ones workspaces buy themselves."
+        subtitle="Numbers on the platform’s Vobiz account: ones you add (each workspace’s plan includes one, picked from the free ones) and ones workspaces buy themselves."
         actions={
           canAct ? (
             <Button variant="accent" icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>
@@ -147,7 +147,7 @@ export function NumbersPage() {
 }
 
 function AddNumberModal({ orgs, onClose, onAdded }: { orgs: { id: string; name: string }[]; onClose: () => void; onAdded: (data: PlatformNumber[], number: string) => void }) {
-  const [provider, setProvider] = useState('sinch');
+  const [provider, setProvider] = useState('vobiz');
   const [number, setNumber] = useState('+91');
   const [label, setLabel] = useState('');
   const [orgId, setOrgId] = useState('');
@@ -170,9 +170,9 @@ function AddNumberModal({ orgs, onClose, onAdded }: { orgs: { id: string; name: 
   return (
     <Modal title="Add a phone number" onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
-        <Alert tone="info">Buy the number on the provider’s account first (Sinch: link it to the voice service; Plivo: link it to the app). This only records it here.</Alert>
+        <Alert tone="info">Buy the number on the Vobiz account first and attach it to the “Voice-AI” application (or run the set-up command with --number). This only records it here.</Alert>
         {error ? <Alert>{error}</Alert> : null}
-        <SelectField label="Provider" value={provider} onChange={setProvider} options={[{ value: 'sinch', label: 'Sinch' }, { value: 'plivo', label: 'Plivo' }]} />
+        <SelectField label="Provider" value={provider} onChange={setProvider} options={[{ value: 'vobiz', label: 'Vobiz' }]} />
         <TextField label="Number" value={number} onChange={(e) => setNumber(e.target.value)} hint="With country code, e.g. +918071234567" required inputMode="tel" />
         <TextField label="Label (optional)" value={label} onChange={(e) => setLabel(e.target.value)} maxLength={60} placeholder="e.g. Sales line" />
         <SelectField label="Workspace" value={orgId} onChange={setOrgId} options={[{ value: '', label: 'Free (no workspace yet)' }, ...orgs.map((o) => ({ value: o.id, label: o.name }))]} />
@@ -216,7 +216,8 @@ function SellingForm({
   canEdit: boolean;
   onSaved: () => Promise<void>;
 }) {
-  const [s, setS] = useState(initial);
+  // Settings saved before the move to Vobiz may still list removed providers.
+  const [s, setS] = useState({ ...initial, providers: initial.providers.filter((id) => providers.some((p) => p.id === id)) });
   const [countries, setCountries] = useState(initial.countries.join(', '));
   const [price, setPrice] = useState(String(initial.price));
   const [countryPrices, setCountryPrices] = useState(
