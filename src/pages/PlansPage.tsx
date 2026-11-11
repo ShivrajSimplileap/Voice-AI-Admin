@@ -310,7 +310,7 @@ function AffixField({
 const PREVIEW_TEXT: Record<LimitKey, (n: number) => string> = {
   minutesPerMonth: (n) => `${fmtNum(n)} call minutes a month`,
   seats: (n) => `${fmtNum(n)} member${n === 1 ? '' : 's'}`,
-  numbers: (n) => `${fmtNum(n)} phone number${n === 1 ? '' : 's'}`,
+  numbers: (n) => `${fmtNum(n)} phone number${n === 1 ? '' : 's'} included`,
   agents: (n) => `${fmtNum(n)} agent${n === 1 ? '' : 's'}`,
   activeCampaigns: (n) => `${fmtNum(n)} running campaign${n === 1 ? '' : 's'}`,
   storageMb: (n) => `${fmtNum(n)} MB of knowledge files`,

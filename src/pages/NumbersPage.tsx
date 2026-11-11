@@ -1,9 +1,9 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { Plus } from 'lucide-react';
-import { api, type PlatformNumber } from '../api';
+import { api, type NumberSelling, type PlatformNumber } from '../api';
 import { useTitle } from '../router';
 import { useAdmin } from '../session';
-import { Alert, Badge, Button, Confirm, Modal, PageHeader, SelectField, TextField } from '../components/ui';
+import { Alert, Badge, Button, Card, Confirm, Modal, PageHeader, SelectField, TextField, Toggle } from '../components/ui';
 import { FilterBar, FilterSelect, Loaded, SearchBox, Table, useLoad, useQueryState, type Column } from '../components/data';
 
 /** The platform's phone numbers and which workspace each belongs to. */
@@ -40,7 +40,7 @@ export function NumbersPage() {
       key: 'org',
       label: 'Workspace',
       render: (n) =>
-        canAct ? (
+        canAct && n.source !== 'purchased' ? (
           <select
             aria-label={`Workspace of ${n.number}`}
             value={n.org?.id ?? ''}
@@ -61,13 +61,26 @@ export function NumbersPage() {
         ),
     },
     { key: 'agent', label: 'Answering agent', render: (n) => n.agentName ?? '—' },
+    {
+      key: 'source',
+      label: 'Source',
+      render: (n) =>
+        n.source === 'purchased' ? (
+          <span className="whitespace-nowrap">
+            <Badge tone="good">Bought</Badge>
+            <span className="ml-1.5 text-[12px] text-muted">{n.monthlyPrice !== null ? `${n.monthlyPrice}/mo` : ''}</span>
+          </span>
+        ) : (
+          <span className="text-muted">Added here</span>
+        ),
+    },
   ];
 
   return (
     <>
       <PageHeader
         title="Phone numbers"
-        subtitle="Numbers bought on the platform’s Sinch or Plivo account. Each belongs to one workspace at a time; free ones can be picked by a workspace owner (one each)."
+        subtitle="Numbers on the platform’s Sinch or Plivo accounts: ones you add (each workspace’s plan includes one, picked from the free ones) and ones workspaces buy themselves."
         actions={
           canAct ? (
             <Button variant="accent" icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>
@@ -81,6 +94,7 @@ export function NumbersPage() {
           <Alert tone="good">{notice}</Alert>
         </div>
       ) : null}
+      <SellingCard />
       <FilterBar>
         <SearchBox value={f.q} onChange={(q) => set({ q })} placeholder="Search number, label or workspace" />
         <FilterSelect label="Provider" value={f.provider} onChange={(provider) => set({ provider })} options={[{ value: '', label: 'All providers' }, ...providers.map((p) => ({ value: p, label: p }))]} />
@@ -167,5 +181,137 @@ function AddNumberModal({ orgs, onClose, onAdded }: { orgs: { id: string; name: 
         </div>
       </form>
     </Modal>
+  );
+}
+
+const COUNTRY_HINT = 'Two-letter codes, comma-separated (e.g. US, GB, CA). Blank: the CRM offers US, GB, CA, AU, SG and IN.';
+const TYPE_LABEL: Record<string, string> = { local: 'Local', mobile: 'Mobile', tollfree: 'Toll-free' };
+
+/** Selling numbers in the CRM: which providers, countries and kinds, and the monthly price. */
+function SellingCard() {
+  const canEdit = useAdmin().role === 'super_admin';
+  const state = useLoad(() => Promise.all([api.numberSelling(), api.rates()]), []);
+  return (
+    <Loaded state={state}>
+      {([s, rates]) => <SellingForm key={JSON.stringify(s.settings)} initial={s.settings} providers={s.providers} currency={rates.currency} canEdit={canEdit} onSaved={state.reload} />}
+    </Loaded>
+  );
+}
+
+function SellingForm({
+  initial,
+  providers,
+  currency,
+  canEdit,
+  onSaved,
+}: {
+  initial: NumberSelling;
+  providers: { id: string; name: string; configured: boolean }[];
+  currency: string;
+  canEdit: boolean;
+  onSaved: () => Promise<void>;
+}) {
+  const [s, setS] = useState(initial);
+  const [countries, setCountries] = useState(initial.countries.join(', '));
+  const [price, setPrice] = useState(String(initial.price));
+  const [countryPrices, setCountryPrices] = useState(
+    Object.entries(initial.countryPrices)
+      .map(([c, p]) => `${c}=${p}`)
+      .join(', ')
+  );
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null);
+
+  const parsedCountries = countries
+    .split(',')
+    .map((c) => c.trim().toUpperCase())
+    .filter(Boolean);
+  const pairs = countryPrices
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => p.split('=').map((x) => x.trim()));
+  const parsedPrices = Object.fromEntries(pairs.map(([c, v]) => [(c ?? '').toUpperCase(), Number(v)])) as Record<string, number>;
+  const errors = {
+    countries: parsedCountries.some((c) => !/^[A-Z]{2}$/.test(c)) ? 'Use two-letter country codes.' : null,
+    price: !/^\d+(\.\d{1,2})?$/.test(price.trim()) ? 'Enter a price, e.g. 3 or 2.50.' : null,
+    countryPrices: pairs.some(([c, v]) => !/^[A-Za-z]{2}$/.test(c ?? '') || v === undefined || !/^\d+(\.\d{1,2})?$/.test(v)) ? 'Use CC=price, e.g. GB=4, CA=3.50.' : null,
+  };
+  const invalid = Object.values(errors).some(Boolean) || (s.enabled && !s.providers.length) || !s.types.length;
+
+  async function save() {
+    setBusy(true);
+    setNotice(null);
+    try {
+      await api.setNumberSelling({ ...s, countries: parsedCountries, price: Number(price), countryPrices: parsedPrices });
+      setNotice({ tone: 'good', text: s.enabled ? 'Saved. Owners and admins of paying workspaces can buy numbers in the CRM.' : 'Saved. Buying numbers is off.' });
+      await onSaved();
+    } catch (err) {
+      setNotice({ tone: 'bad', text: err instanceof Error ? err.message : 'Couldn’t save.' });
+      setBusy(false);
+    }
+  }
+
+  const toggle = <T extends string>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+
+  return (
+    <Card className="mb-4 p-5">
+      <h3 className="flex items-center gap-2 text-[15px] font-bold">
+        Selling numbers in the CRM {initial.enabled ? <Badge tone="good">On</Badge> : <Badge>Off</Badge>}
+      </h3>
+      <p className="mt-1 max-w-3xl text-sm text-muted">
+        A workspace’s plan includes its free number (picked from the ones added here). Extra numbers are bought in the CRM (Phone Numbers → Add phone number → Buy new number) on
+        your provider accounts, and each is added to the workspace’s Razorpay bill every month at your price until it’s cancelled. Buying needs an active paid subscription. Numbers
+        that need documents (e.g. India) can’t be bought online.
+      </p>
+      {notice ? (
+        <div className="mt-3">
+          <Alert tone={notice.tone}>{notice.text}</Alert>
+        </div>
+      ) : null}
+      <fieldset disabled={!canEdit} className="mt-4 space-y-4">
+        <Toggle label="Let workspaces buy numbers" checked={s.enabled} onChange={(v) => setS({ ...s, enabled: v })} />
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <p className="mb-1.5 text-[13px] font-semibold text-ink-2">Providers</p>
+            <div className="flex flex-wrap gap-2">
+              {providers.map((p) => (
+                <label key={p.id} className="flex items-center gap-2 rounded-full bg-soft px-3 py-1.5 text-sm">
+                  <input type="checkbox" checked={s.providers.includes(p.id)} disabled={!p.configured} onChange={() => setS({ ...s, providers: toggle(s.providers, p.id) })} />
+                  {p.name}
+                  {!p.configured ? <span className="text-[12px] text-muted">(not set up on this server)</span> : null}
+                </label>
+              ))}
+            </div>
+            {s.enabled && !s.providers.length ? <p className="mt-1 text-[13px] text-bad">Pick at least one provider.</p> : null}
+          </div>
+          <div>
+            <p className="mb-1.5 text-[13px] font-semibold text-ink-2">Kinds of number</p>
+            <div className="flex flex-wrap gap-2">
+              {(['local', 'mobile', 'tollfree'] as const).map((t) => (
+                <label key={t} className="flex items-center gap-2 rounded-full bg-soft px-3 py-1.5 text-sm">
+                  <input type="checkbox" checked={s.types.includes(t)} onChange={() => setS({ ...s, types: toggle(s.types, t) })} />
+                  {TYPE_LABEL[t]}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <TextField label="Countries" value={countries} onChange={(e) => setCountries(e.target.value)} hint={COUNTRY_HINT} error={errors.countries} placeholder="US, GB" />
+          <TextField label={`Price per number, per month (${currency})`} value={price} inputMode="decimal" onChange={(e) => setPrice(e.target.value)} error={errors.price} />
+          <TextField label="Price by country (optional)" value={countryPrices} onChange={(e) => setCountryPrices(e.target.value)} hint="e.g. GB=4, CA=3.50" error={errors.countryPrices} />
+        </div>
+        {canEdit ? (
+          <div className="flex justify-end">
+            <Button busy={busy} disabled={invalid} onClick={() => void save()}>
+              Save
+            </Button>
+          </div>
+        ) : (
+          <p className="text-[13px] text-muted">Only super admins can change this.</p>
+        )}
+      </fieldset>
+    </Card>
   );
 }

@@ -7,7 +7,7 @@ import { fmtNum } from './data';
 export const LIMITS: { key: LimitKey; label: string; unit: string; hint: string }[] = [
   { key: 'minutesPerMonth', label: 'Call minutes a month', unit: 'min', hint: 'Inbound and outbound phone calls, each rounded up to the minute. Used up: calls pause until next month.' },
   { key: 'seats', label: 'Members', unit: '', hint: 'People in the workspace, plus pending invitations.' },
-  { key: 'numbers', label: 'Phone numbers', unit: '', hint: 'Free numbers an owner can take themselves.' },
+  { key: 'numbers', label: 'Included phone numbers', unit: '', hint: 'Numbers that come with the plan (picked from your free ones). Extra numbers are bought at the per-number price.' },
   { key: 'agents', label: 'Agents', unit: '', hint: 'AI agents the workspace can create.' },
   { key: 'activeCampaigns', label: 'Running campaigns', unit: '', hint: 'Running or scheduled at the same time.' },
   { key: 'storageMb', label: 'Knowledge storage', unit: 'MB', hint: 'Knowledge files uploaded.' },
