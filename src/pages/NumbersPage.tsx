@@ -327,10 +327,10 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 /** Selling numbers in the CRM: which providers, countries and kinds, and the monthly price. */
 function SellingCard() {
   const canEdit = useAdmin().role === 'super_admin';
-  const state = useLoad(() => Promise.all([api.numberSelling(), api.rates()]), []);
+  const state = useLoad(() => api.numberSelling(), []);
   return (
     <Loaded state={state}>
-      {([s, rates]) => <SellingForm key={JSON.stringify(s.settings)} initial={s.settings} providers={s.providers} currency={rates.currency} canEdit={canEdit} onSaved={state.reload} />}
+      {(s) => <SellingForm key={JSON.stringify(s.settings)} initial={s.settings} providers={s.providers} currency={s.currency} canEdit={canEdit} onSaved={state.reload} />}
     </Loaded>
   );
 }
@@ -351,13 +351,7 @@ function SellingForm({
   // Settings saved before the move to Vobiz may still list removed providers.
   const [s, setS] = useState({ ...initial, providers: initial.providers.filter((id) => providers.some((p) => p.id === id)) });
   const [countries, setCountries] = useState(initial.countries.join(', '));
-  const [price, setPrice] = useState(String(initial.price));
   const [setupPrice, setSetupPrice] = useState(String(initial.setupPrice ?? 0));
-  const [countryPrices, setCountryPrices] = useState(
-    Object.entries(initial.countryPrices)
-      .map(([c, p]) => `${c}=${p}`)
-      .join(', ')
-  );
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null);
 
@@ -365,17 +359,9 @@ function SellingForm({
     .split(',')
     .map((c) => c.trim().toUpperCase())
     .filter(Boolean);
-  const pairs = countryPrices
-    .split(',')
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .map((p) => p.split('=').map((x) => x.trim()));
-  const parsedPrices = Object.fromEntries(pairs.map(([c, v]) => [(c ?? '').toUpperCase(), Number(v)])) as Record<string, number>;
   const errors = {
     countries: parsedCountries.some((c) => !/^[A-Z]{2}$/.test(c)) ? 'Use two-letter country codes.' : null,
-    price: !/^\d+(\.\d{1,2})?$/.test(price.trim()) ? 'Enter a price, e.g. 3 or 2.50.' : null,
     setupPrice: !/^\d+(\.\d{1,2})?$/.test(setupPrice.trim()) ? 'Enter a price, or 0 for none.' : null,
-    countryPrices: pairs.some(([c, v]) => !/^[A-Za-z]{2}$/.test(c ?? '') || v === undefined || !/^\d+(\.\d{1,2})?$/.test(v)) ? 'Use CC=price, e.g. GB=4, CA=3.50.' : null,
   };
   const invalid = Object.values(errors).some(Boolean) || (s.enabled && !s.providers.length) || !s.types.length;
 
@@ -383,7 +369,7 @@ function SellingForm({
     setBusy(true);
     setNotice(null);
     try {
-      await api.setNumberSelling({ ...s, countries: parsedCountries, price: Number(price), countryPrices: parsedPrices, setupPrice: Number(setupPrice) });
+      await api.setNumberSelling({ enabled: s.enabled, providers: s.providers, types: s.types, countries: parsedCountries, setupPrice: Number(setupPrice) });
       setNotice({ tone: 'good', text: s.enabled ? 'Saved. Owners and admins of paying workspaces can buy numbers in the CRM.' : 'Saved. Buying numbers is off.' });
       await onSaved();
     } catch (err) {
@@ -400,9 +386,9 @@ function SellingForm({
         Selling numbers in the CRM {initial.enabled ? <Badge tone="good">On</Badge> : <Badge>Off</Badge>}
       </h3>
       <p className="mt-1 max-w-3xl text-sm text-muted">
-        A workspace’s plan includes its free number (picked from the ones added here). Extra numbers are bought in the CRM (Phone Numbers → Add phone number → Buy new number) on
-        your Vobiz account, and each is added to the workspace’s Razorpay bill every month at your price until it’s cancelled (plus the setup price once, if set). Buying needs an active
-        paid subscription. Indian numbers can be bought once the Vobiz account has passed KYC; ones that need Aadhaar verification can’t be bought online.
+        Workspaces buy numbers in the CRM (Phone Numbers → Add phone number → Buy new number). The monthly rent is Vobiz’s own price for each number; you set the one-time setup
+        fee here. They pay the setup fee and first month on Razorpay, then the backend buys the number on your Vobiz account and adds it to their workspace; the rent is charged
+        monthly until they cancel (or stop paying, which releases the number). No plan is needed. Indian numbers can be bought once the Vobiz account has passed KYC.
       </p>
       {notice ? (
         <div className="mt-3">
@@ -439,16 +425,14 @@ function SellingForm({
             </div>
           </div>
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           <TextField label="Countries" value={countries} onChange={(e) => setCountries(e.target.value)} hint={COUNTRY_HINT} error={errors.countries} placeholder="US, GB" />
-          <TextField label={`Price per number, per month (${currency})`} value={price} inputMode="decimal" onChange={(e) => setPrice(e.target.value)} error={errors.price} />
-          <TextField label="Price by country (optional)" value={countryPrices} onChange={(e) => setCountryPrices(e.target.value)} hint="e.g. GB=4, CA=3.50" error={errors.countryPrices} />
           <TextField
-            label={`Setup price, once per number (${currency})`}
+            label={`Setup fee, once per number (${currency})`}
             value={setupPrice}
             inputMode="decimal"
             onChange={(e) => setSetupPrice(e.target.value)}
-            hint="Covers Vobiz’s setup fee; 0 for none"
+            hint="Charged with the first month. Monthly rent: Vobiz’s price per number."
             error={errors.setupPrice}
           />
         </div>
