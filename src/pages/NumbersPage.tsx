@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { Plus } from 'lucide-react';
-import { api, type NumberSelling, type PlatformNumber } from '../api';
+import { api, type NumberProvider, type NumberSelling, type PlatformNumber } from '../api';
 import { useTitle } from '../router';
 import { useAdmin } from '../session';
 import { Alert, Badge, Button, Card, Confirm, Modal, PageHeader, SelectField, TextField, Toggle } from '../components/ui';
@@ -211,7 +211,7 @@ function SellingForm({
   onSaved,
 }: {
   initial: NumberSelling;
-  providers: { id: string; name: string; configured: boolean }[];
+  providers: NumberProvider[];
   currency: string;
   canEdit: boolean;
   onSaved: () => Promise<void>;
@@ -220,6 +220,7 @@ function SellingForm({
   const [s, setS] = useState({ ...initial, providers: initial.providers.filter((id) => providers.some((p) => p.id === id)) });
   const [countries, setCountries] = useState(initial.countries.join(', '));
   const [price, setPrice] = useState(String(initial.price));
+  const [setupPrice, setSetupPrice] = useState(String(initial.setupPrice ?? 0));
   const [countryPrices, setCountryPrices] = useState(
     Object.entries(initial.countryPrices)
       .map(([c, p]) => `${c}=${p}`)
@@ -241,6 +242,7 @@ function SellingForm({
   const errors = {
     countries: parsedCountries.some((c) => !/^[A-Z]{2}$/.test(c)) ? 'Use two-letter country codes.' : null,
     price: !/^\d+(\.\d{1,2})?$/.test(price.trim()) ? 'Enter a price, e.g. 3 or 2.50.' : null,
+    setupPrice: !/^\d+(\.\d{1,2})?$/.test(setupPrice.trim()) ? 'Enter a price, or 0 for none.' : null,
     countryPrices: pairs.some(([c, v]) => !/^[A-Za-z]{2}$/.test(c ?? '') || v === undefined || !/^\d+(\.\d{1,2})?$/.test(v)) ? 'Use CC=price, e.g. GB=4, CA=3.50.' : null,
   };
   const invalid = Object.values(errors).some(Boolean) || (s.enabled && !s.providers.length) || !s.types.length;
@@ -249,7 +251,7 @@ function SellingForm({
     setBusy(true);
     setNotice(null);
     try {
-      await api.setNumberSelling({ ...s, countries: parsedCountries, price: Number(price), countryPrices: parsedPrices });
+      await api.setNumberSelling({ ...s, countries: parsedCountries, price: Number(price), countryPrices: parsedPrices, setupPrice: Number(setupPrice) });
       setNotice({ tone: 'good', text: s.enabled ? 'Saved. Owners and admins of paying workspaces can buy numbers in the CRM.' : 'Saved. Buying numbers is off.' });
       await onSaved();
     } catch (err) {
@@ -267,8 +269,8 @@ function SellingForm({
       </h3>
       <p className="mt-1 max-w-3xl text-sm text-muted">
         A workspace’s plan includes its free number (picked from the ones added here). Extra numbers are bought in the CRM (Phone Numbers → Add phone number → Buy new number) on
-        your provider accounts, and each is added to the workspace’s Razorpay bill every month at your price until it’s cancelled. Buying needs an active paid subscription. Numbers
-        that need documents (e.g. India) can’t be bought online.
+        your Vobiz account, and each is added to the workspace’s Razorpay bill every month at your price until it’s cancelled (plus the setup price once, if set). Buying needs an active
+        paid subscription. Indian numbers can be bought once the Vobiz account has passed KYC; ones that need Aadhaar verification can’t be bought online.
       </p>
       {notice ? (
         <div className="mt-3">
@@ -286,6 +288,8 @@ function SellingForm({
                   <input type="checkbox" checked={s.providers.includes(p.id)} disabled={!p.configured} onChange={() => setS({ ...s, providers: toggle(s.providers, p.id) })} />
                   {p.name}
                   {!p.configured ? <span className="text-[12px] text-muted">(not set up on this server)</span> : null}
+                  {p.configured && p.verified === true ? <Badge tone="good">KYC verified</Badge> : null}
+                  {p.configured && p.verified === false ? <Badge tone="bad">KYC pending</Badge> : null}
                 </label>
               ))}
             </div>
@@ -307,7 +311,18 @@ function SellingForm({
           <TextField label="Countries" value={countries} onChange={(e) => setCountries(e.target.value)} hint={COUNTRY_HINT} error={errors.countries} placeholder="US, GB" />
           <TextField label={`Price per number, per month (${currency})`} value={price} inputMode="decimal" onChange={(e) => setPrice(e.target.value)} error={errors.price} />
           <TextField label="Price by country (optional)" value={countryPrices} onChange={(e) => setCountryPrices(e.target.value)} hint="e.g. GB=4, CA=3.50" error={errors.countryPrices} />
+          <TextField
+            label={`Setup price, once per number (${currency})`}
+            value={setupPrice}
+            inputMode="decimal"
+            onChange={(e) => setSetupPrice(e.target.value)}
+            hint="Covers Vobiz’s setup fee; 0 for none"
+            error={errors.setupPrice}
+          />
         </div>
+        {providers.some((p) => p.configured && p.verified === false) ? (
+          <Alert tone="info">The Vobiz account hasn’t passed KYC yet, so Indian numbers can’t be bought. Finish KYC in the Vobiz console (PAN and GST for a company).</Alert>
+        ) : null}
         {canEdit ? (
           <div className="flex justify-end">
             <Button busy={busy} disabled={invalid} onClick={() => void save()}>

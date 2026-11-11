@@ -164,7 +164,7 @@ export const api = {
   callRecording: async (id: string) => (await send('GET', `/calls/${id}/recording`)).blob(),
   retryAnalysis: (id: string) => call<CallRow>('POST', `/calls/${id}/retry-analysis`),
   numbers: () => call<{ data: PlatformNumber[] }>('GET', '/numbers'),
-  numberSelling: () => call<{ settings: NumberSelling; providers: { id: string; name: string; configured: boolean }[] }>('GET', '/numbers/selling'),
+  numberSelling: () => call<{ settings: NumberSelling; providers: NumberProvider[] }>('GET', '/numbers/selling'),
   setNumberSelling: (settings: NumberSelling) => call<{ settings: NumberSelling; providers: { id: string; name: string; configured: boolean }[] }>('PUT', '/numbers/selling', settings),
   addNumber: (body: { provider: string; number: string; label: string; orgId: string | null }) => call<{ data: PlatformNumber[] }>('POST', '/numbers', body),
   assignNumber: (id: string, orgId: string | null) => call<{ data: PlatformNumber[] }>('PATCH', `/numbers/${id}`, { orgId }),
@@ -701,6 +701,16 @@ export interface NumberSelling {
   types: ('local' | 'mobile' | 'tollfree')[];
   price: number;
   countryPrices: Record<string, number>;
+  /** Charged once when a number is bought (0 = none). */
+  setupPrice: number;
+}
+
+/** A provider for selling numbers; `verified` is its account's KYC check (null: unknown). */
+export interface NumberProvider {
+  id: string;
+  name: string;
+  configured: boolean;
+  verified: boolean | null;
 }
 
 export interface Health {
