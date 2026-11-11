@@ -375,7 +375,7 @@ export interface OrgNote {
 // Phase 4 types
 // ---------------------------------------------------------------------------
 export type UsagePeriod = 'this_month' | 'last_month' | '30d';
-export type LimitKey = 'minutesPerMonth' | 'seats' | 'numbers' | 'agents' | 'activeCampaigns' | 'storageMb';
+export type LimitKey = 'minutesPerMonth' | 'seats' | 'agents' | 'activeCampaigns' | 'storageMb';
 export type PlanLimits = Partial<Record<LimitKey, number>>;
 export type PlanStatus = 'trialing' | 'active' | 'unpaid' | 'free';
 
@@ -440,7 +440,7 @@ export interface OrgPlanInput {
   planId: string | null;
   status?: PlanStatus;
   trialEndsAt?: string | null;
-  overrides?: Partial<Record<Exclude<LimitKey, 'numbers'>, number | null>>;
+  overrides?: Partial<Record<LimitKey, number | null>>;
 }
 
 export type UsageKind = 'phone_live' | 'browser_live' | 'analysis' | 'transcription' | 'embedding';
