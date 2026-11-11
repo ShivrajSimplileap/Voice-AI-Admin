@@ -297,7 +297,7 @@ function DialingCard({ canSwitch, onNotice }: { canSwitch: boolean; onNotice: (n
           >
             <Alert tone="info">Every workspace’s outbound calls stop within a few seconds. Calls in progress continue.</Alert>
             {error ? <Alert>{error}</Alert> : null}
-            <TextField label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Sinch outage" required maxLength={300} />
+            <TextField label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Vobiz outage" required maxLength={300} />
             <div className="flex justify-end gap-2">
               <Button type="button" variant="ghost" onClick={() => setDialog(null)}>
                 Cancel

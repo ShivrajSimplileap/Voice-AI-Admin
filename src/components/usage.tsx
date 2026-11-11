@@ -21,7 +21,7 @@ export const KIND_LABEL: Record<UsageKind, string> = {
   embedding: 'Knowledge search and indexing',
 };
 
-export const PROVIDER_LABEL: Record<string, string> = { sinch: 'Sinch', plivo: 'Plivo', unknown: 'Unknown provider' };
+export const PROVIDER_LABEL: Record<string, string> = { vobiz: 'Vobiz', sinch: 'Sinch (removed)', plivo: 'Plivo (removed)', unknown: 'Unknown provider' };
 
 export const limitText = (v: number | undefined, unit = '') => (v === undefined || v === null ? 'Unlimited' : `${fmtNum(v)}${unit ? ` ${unit}` : ''}`);
 
