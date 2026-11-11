@@ -43,7 +43,7 @@ function PlanView({ orgId, p, plans, onChanged }: { orgId: string; p: OrgPlan; p
   const [status, setStatus] = useState<PlanStatus>(p.status && p.status !== 'free' ? p.status : 'active');
   const [trialEnd, setTrialEnd] = useState(dateInput(p.trialEndsAt));
   const [overrides, setOverrides] = useState<Record<string, string>>(() =>
-    Object.fromEntries(LIMITS.filter((l) => l.key !== 'numbers').map((l) => [l.key, p.overrides[l.key] !== undefined ? String(p.overrides[l.key]) : '']))
+    Object.fromEntries(LIMITS.map((l) => [l.key, p.overrides[l.key] !== undefined ? String(p.overrides[l.key]) : '']))
   );
 
   const choosable = plans.filter((x) => !x.archived || x.id === p.plan?.id);
@@ -166,7 +166,7 @@ function PlanView({ orgId, p, plans, onChanged }: { orgId: string; p: OrgPlan; p
                   <span className="font-semibold">Controls</span> tab.
                 </p>
                 <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                  {LIMITS.filter((l) => l.key !== 'numbers').map((l) => (
+                  {LIMITS.map((l) => (
                     <TextField
                       key={l.key}
                       label={l.label + (l.unit ? ` (${l.unit})` : '')}
@@ -211,7 +211,7 @@ function PlanView({ orgId, p, plans, onChanged }: { orgId: string; p: OrgPlan; p
                 <li key={l.key} className="grid grid-cols-[1fr_auto] items-center gap-4">
                   <span className="text-sm">
                     {l.label}
-                    {p.overrides[l.key as Exclude<LimitKey, 'numbers'>] !== undefined ? <Badge tone="blue">custom</Badge> : null}
+                    {p.overrides[l.key as LimitKey] !== undefined ? <Badge tone="blue">custom</Badge> : null}
                   </span>
                   <Meter used={p.usage[l.key]} limit={p.limits[l.key]} unit={l.unit} />
                 </li>
