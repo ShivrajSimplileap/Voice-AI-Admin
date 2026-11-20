@@ -5,18 +5,19 @@ import { navigate, useTitle } from '../router';
 import { useAdmin } from '../session';
 import { Alert, Badge, Button, Card, Confirm, PageHeader, TextField, cx, timeAgo } from '../components/ui';
 import { StatTile } from '../components/charts';
+import { VerificationQueue } from './WorkspaceVerification';
 import { FilterBar, FilterSelect, Loaded, Pager, SearchBox, Table, fmtNum, useLoad, useQueryState, type Column } from '../components/data';
 
-const TABS = ['Report', 'Platform DND list'] as const;
+const TABS = ['Report', 'Business verification', 'Platform DND list'] as const;
 
 /** Phase 5: calling compliance across workspaces, and numbers no workspace may call. */
 export function CompliancePage() {
   useTitle('Compliance');
-  const [f, set] = useQueryState({ tab: 'Report', days: '30', q: '', page: '1' });
+  const [f, set] = useQueryState({ tab: 'Report', days: '30', q: '', page: '1', vstatus: 'submitted' });
   const tab = (TABS as readonly string[]).includes(f.tab) ? f.tab : 'Report';
   return (
     <>
-      <PageHeader title="Compliance" subtitle="India calling rules (TRAI / DPDP) across every workspace, and the platform-wide do-not-call list." />
+      <PageHeader title="Compliance" subtitle="India calling rules (TRAI / DPDP) across every workspace, business verification before numbers, and the platform-wide do-not-call list." />
       <div role="tablist" className="mb-5 flex gap-1 overflow-x-auto">
         {TABS.map((t) => (
           <button
@@ -30,7 +31,13 @@ export function CompliancePage() {
           </button>
         ))}
       </div>
-      {tab === 'Report' ? <Report days={f.days} setDays={(days) => set({ days })} /> : <DndList q={f.q} page={f.page} set={set} />}
+      {tab === 'Report' ? (
+        <Report days={f.days} setDays={(days) => set({ days })} />
+      ) : tab === 'Business verification' ? (
+        <VerificationQueue status={f.vstatus} q={f.q} page={f.page} set={set} />
+      ) : (
+        <DndList q={f.q} page={f.page} set={set} />
+      )}
     </>
   );
 }
