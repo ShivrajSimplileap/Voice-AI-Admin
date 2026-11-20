@@ -352,6 +352,8 @@ function SellingForm({
   const [s, setS] = useState({ ...initial, providers: initial.providers.filter((id) => providers.some((p) => p.id === id)) });
   const [countries, setCountries] = useState(initial.countries.join(', '));
   const [setupPrice, setSetupPrice] = useState(String(initial.setupPrice ?? 0));
+  const [markupPercent, setMarkupPercent] = useState(String(initial.monthlyMarkupPercent ?? 0));
+  const [markupFixed, setMarkupFixed] = useState(String(initial.monthlyMarkupFixed ?? 0));
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null);
 
@@ -362,14 +364,26 @@ function SellingForm({
   const errors = {
     countries: parsedCountries.some((c) => !/^[A-Z]{2}$/.test(c)) ? 'Use two-letter country codes.' : null,
     setupPrice: !/^\d+(\.\d{1,2})?$/.test(setupPrice.trim()) ? 'Enter a price, or 0 for none.' : null,
+    markupPercent: !/^\d+(\.\d{1,2})?$/.test(markupPercent.trim()) || Number(markupPercent) > 1000 ? 'Enter a percentage from 0 to 1000.' : null,
+    markupFixed: !/^\d+(\.\d{1,2})?$/.test(markupFixed.trim()) ? 'Enter an amount, or 0 for none.' : null,
   };
+  // What a number Vobiz rents for 500 would cost a workspace a month.
+  const exampleRent = errors.markupPercent || errors.markupFixed ? null : Math.round((500 * (1 + Number(markupPercent) / 100) + Number(markupFixed)) * 100) / 100;
   const invalid = Object.values(errors).some(Boolean) || (s.enabled && !s.providers.length) || !s.types.length;
 
   async function save() {
     setBusy(true);
     setNotice(null);
     try {
-      await api.setNumberSelling({ enabled: s.enabled, providers: s.providers, types: s.types, countries: parsedCountries, setupPrice: Number(setupPrice) });
+      await api.setNumberSelling({
+        enabled: s.enabled,
+        providers: s.providers,
+        types: s.types,
+        countries: parsedCountries,
+        setupPrice: Number(setupPrice),
+        monthlyMarkupPercent: Number(markupPercent),
+        monthlyMarkupFixed: Number(markupFixed),
+      });
       setNotice({ tone: 'good', text: s.enabled ? 'Saved. Owners and admins of paying workspaces can buy numbers in the CRM.' : 'Saved. Buying numbers is off.' });
       await onSaved();
     } catch (err) {
@@ -386,8 +400,8 @@ function SellingForm({
         Selling numbers in the CRM {initial.enabled ? <Badge tone="good">On</Badge> : <Badge>Off</Badge>}
       </h3>
       <p className="mt-1 max-w-3xl text-sm text-muted">
-        Workspaces buy numbers in the CRM (Phone Numbers → Add phone number → Buy new number). The monthly rent is Vobiz’s own price for each number; you set the one-time setup
-        fee here. They pay the setup fee and first month on Razorpay, then the backend buys the number on your Vobiz account and adds it to their workspace; the rent is charged
+        Workspaces buy numbers in the CRM (Phone Numbers → Add phone number → Buy new number). The monthly rent is Vobiz’s own price for each number plus your markup; you set the
+        markup and the one-time setup fee here. They pay the setup fee and first month on Razorpay, then the backend buys the number on your Vobiz account and adds it to their workspace; the rent is charged
         monthly until they cancel (or stop paying, which releases the number). No plan is needed. Indian numbers can be bought once the Vobiz account has passed KYC.
       </p>
       {notice ? (
@@ -432,10 +446,33 @@ function SellingForm({
             value={setupPrice}
             inputMode="decimal"
             onChange={(e) => setSetupPrice(e.target.value)}
-            hint="Charged with the first month. Monthly rent: Vobiz’s price per number."
+            hint="Charged with the first month."
             error={errors.setupPrice}
           />
         </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <TextField
+            label="Monthly markup (%)"
+            value={markupPercent}
+            inputMode="decimal"
+            onChange={(e) => setMarkupPercent(e.target.value)}
+            hint="Added to Vobiz’s monthly rent for each number. 0 = Vobiz’s price."
+            error={errors.markupPercent}
+          />
+          <TextField
+            label={`Monthly markup, fixed (${currency})`}
+            value={markupFixed}
+            inputMode="decimal"
+            onChange={(e) => setMarkupFixed(e.target.value)}
+            hint={
+              exampleRent === null
+                ? 'Added after the percentage.'
+                : `Added after the percentage. Example: Vobiz rent ${currency} 500 → workspace pays ${currency} ${exampleRent} a month.`
+            }
+            error={errors.markupFixed}
+          />
+        </div>
+        <p className="text-[13px] text-muted">New prices apply to numbers bought from now on; numbers already bought keep the rent they were bought at.</p>
         {providers.some((p) => p.configured && p.verified === false) ? (
           <Alert tone="info">The Vobiz account hasn’t passed KYC yet, so Indian numbers can’t be bought. Finish KYC in the Vobiz console (PAN and GST for a company).</Alert>
         ) : null}
