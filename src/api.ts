@@ -707,8 +707,11 @@ export interface NumberSelling {
   providers: string[];
   countries: string[];
   types: ('local' | 'mobile' | 'tollfree')[];
-  /** Our one-time setup fee per number, in Vobiz's currency (0 = none). The monthly rent is Vobiz's price. */
+  /** Our one-time setup fee per number, in Vobiz's currency (0 = none). */
   setupPrice: number;
+  /** Added to Vobiz's monthly rent: a percentage of it, then a fixed amount (Vobiz's currency). */
+  monthlyMarkupPercent: number;
+  monthlyMarkupFixed: number;
 }
 
 /** A provider for selling numbers; `verified` is its account's KYC check (null: unknown). */
