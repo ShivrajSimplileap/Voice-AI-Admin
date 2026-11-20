@@ -7,6 +7,7 @@ import { useAdmin } from '../session';
 import { PauseModal, WorkspaceControls } from './WorkspaceControls';
 import { WorkspacePlan } from './WorkspacePlan';
 import { WorkspaceSubAccount } from './WorkspaceSubAccount';
+import { WorkspaceVerification } from './WorkspaceVerification';
 import { WorkspaceData, WorkspaceNotes } from './WorkspaceNotes';
 import { StatTile } from '../components/charts';
 import {
@@ -185,6 +186,7 @@ export function WorkspaceDetailPage({ id }: { id: string }) {
             {tab === 'Campaigns' ? <OrgCampaigns o={o} onChanged={state.reload} /> : null}
             {tab === 'Numbers' ? (
               <div className="space-y-4">
+                <WorkspaceVerification orgId={o.id} />
                 <WorkspaceSubAccount orgId={o.id} />
                 <OrgNumbers o={o} />
               </div>
