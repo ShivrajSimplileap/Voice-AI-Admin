@@ -36,7 +36,7 @@ export function PlansPage() {
       <FreeMinutesCard />
       <Loaded state={state}>
         {([{ data, unplanned }, rates]) => {
-          const money = (n: number) => fmtMoney(n, rates.currency);
+          const money = (n: number) => fmtMoney(n, rates.planCurrency);
           return (
             <>
               {!data.length ? (
@@ -120,7 +120,7 @@ export function PlansPage() {
       {editing ? (
         <PlanModal
           plan={editing === 'new' ? null : editing}
-          currency={state.data?.[1].currency ?? 'USD'}
+          currency={state.data?.[1].planCurrency ?? 'INR'}
           onClose={() => setEditing(null)}
           onSaved={async (name, created) => {
             setEditing(null);

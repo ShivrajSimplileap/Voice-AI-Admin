@@ -190,7 +190,7 @@ function UsageBody({ r, sort, dir, onSort, onRates }: { r: UsageReport; sort: So
         <h2 className="mb-3 text-[15px] font-bold">By workspace</h2>
         <Table rows={rows} columns={columns} onRow={(w) => navigate(`/workspaces/${w.id}?tab=Plan`)} sort={{ key: sort, dir }} onSort={onSort} empty="No workspaces yet." />
         <p className="mt-2 px-1 text-[12px] text-muted">
-          Costs use the current rates, so changing a rate changes past figures too. Plan price counts workspaces whose plan is active (not on trial); Collected is what Razorpay took in the period.
+          Costs use the current rates, so changing a rate changes past figures too. Plan price counts workspaces whose plan is active (not on trial); Collected is what Razorpay took in the period. Both are shown in the cost currency, converted at the exchange rate in Rates.
         </p>
       </div>
     </div>
@@ -295,6 +295,8 @@ function RatesForm({ initial, onSaved }: { initial: Rates & { isDefault: boolean
   const bad = (n: number) => !Number.isFinite(n) || n < 0;
   const invalid =
     !/^[A-Z]{3}$/.test(rates.currency) ||
+    !/^[A-Z]{3}$/.test(rates.planCurrency) ||
+    (rates.planCurrency !== rates.currency && !(rates.planExchangeRate > 0)) ||
     bad(rates.numberPerMonth) ||
     Object.values(rates.phonePerMinute).some(bad) ||
     Object.values(rates.ai).some((t) => Object.values(t).some(bad));
@@ -326,9 +328,24 @@ function RatesForm({ initial, onSaved }: { initial: Rates & { isDefault: boolean
 
       <Card className="p-5">
         <h3 className="text-[15px] font-bold">Currency and phone</h3>
-        <p className="mt-1 text-sm text-muted">All costs and plan prices are in this currency. Phone calls are charged per started minute.</p>
+        <p className="mt-1 text-sm text-muted">
+          Costs are in the cost currency. Customers pay plans in the plan currency: keep it INR unless international payments are on in Razorpay (it charges other currencies by card only).
+          Phone calls are charged per started minute.
+        </p>
         <fieldset disabled={!canEdit} className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <TextField label="Currency" value={rates.currency} maxLength={3} onChange={(e) => setRates({ ...rates, currency: e.target.value.toUpperCase() })} hint="e.g. USD or INR" />
+          <TextField label="Cost currency" value={rates.currency} maxLength={3} onChange={(e) => setRates({ ...rates, currency: e.target.value.toUpperCase() })} hint="e.g. USD or INR" />
+          <TextField label="Plan currency" value={rates.planCurrency} maxLength={3} onChange={(e) => setRates({ ...rates, planCurrency: e.target.value.toUpperCase() })} hint="What Razorpay charges, e.g. INR" />
+          {rates.planCurrency !== rates.currency ? (
+            <TextField
+              label={`1 ${rates.currency || '…'} in ${rates.planCurrency || '…'}`}
+              type="number"
+              min={0}
+              step="any"
+              value={String(rates.planExchangeRate)}
+              onChange={(e) => setRates({ ...rates, planExchangeRate: num(e.target.value) })}
+              hint="For margins: plan prices in cost terms"
+            />
+          ) : null}
           {Object.keys(rates.phonePerMinute).map((p) => (
             <TextField
               key={p}

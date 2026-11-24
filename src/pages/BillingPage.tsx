@@ -70,7 +70,7 @@ export function BillingPage() {
                 {b.currency !== 'INR' ? (
                   <Alert tone="info">
                     Plans are charged in {b.currency}. Razorpay only takes {b.currency} by card, and only once international payments are enabled on your Razorpay account (Settings →
-                    Payment methods). For UPI and e-mandates, use INR on Usage → Rates.
+                    Payment methods). For UPI and e-mandates, set the plan currency to INR on Usage → Rates.
                   </Alert>
                 ) : null}
                 {!b.webhookSecretSet ? <Alert>RAZORPAY_WEBHOOK_SECRET isn’t set, so payments from Razorpay can’t be received. Payments and status changes won’t show here.</Alert> : null}

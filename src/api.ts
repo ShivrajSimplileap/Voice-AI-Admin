@@ -433,6 +433,8 @@ export interface OrgPlan {
 
 export interface OrgMonthCost {
   currency: string;
+  planCurrency: string;
+  planExchangeRate: number;
   from: string;
   minutes: number;
   calls: number;
@@ -461,7 +463,12 @@ export interface TokenRates {
 }
 
 export interface Rates {
+  /** What costs are in. */
   currency: string;
+  /** What customers pay plans in (Razorpay). */
+  planCurrency: string;
+  /** 1 unit of `currency` in `planCurrency` (e.g. 1 USD = 85 INR). */
+  planExchangeRate: number;
   phonePerMinute: Record<string, number>;
   numberPerMonth: number;
   ai: Record<'live' | 'analysis' | 'transcription' | 'embedding', TokenRates>;
