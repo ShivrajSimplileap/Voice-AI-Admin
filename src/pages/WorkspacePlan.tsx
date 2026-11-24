@@ -36,6 +36,10 @@ function PlanView({ orgId, p, plans, onChanged }: { orgId: string; p: OrgPlan; p
   const canEdit = useAdmin().role === 'super_admin';
   const currency = p.cost?.currency ?? 'USD';
   const money = (n: number) => fmtMoney(n, currency);
+  // Plan prices are in the plan currency (what Razorpay charges); costs in the rates' currency.
+  const planCurrency = p.cost?.planCurrency ?? currency;
+  const planMoney = (n: number) => fmtMoney(n, planCurrency);
+  const toCost = (n: number) => (p.cost && planCurrency !== currency ? n / p.cost.planExchangeRate : n);
   const [notice, setNotice] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -86,7 +90,7 @@ function PlanView({ orgId, p, plans, onChanged }: { orgId: string; p: OrgPlan; p
     void save({ ...current, status: 'trialing', trialEndsAt: base.toISOString() }, 'extend', `Trial extended to ${base.toLocaleDateString()}.`);
   };
 
-  const margin = p.plan && p.status === 'active' && p.cost ? p.plan.priceMonthly - p.cost.cost : null;
+  const margin = p.plan && p.status === 'active' && p.cost ? toCost(p.plan.priceMonthly) - p.cost.cost : null;
 
   return (
     <div className="space-y-4">
@@ -101,7 +105,7 @@ function PlanView({ orgId, p, plans, onChanged }: { orgId: string; p: OrgPlan; p
                 <span className="font-semibold">{p.plan?.name ?? (p.status === 'free' ? 'No plan' : 'No plan: can’t call')}</span>
                 {trialBadge(p)}
               </p>
-              {p.plan ? <p className="mt-1 text-[13px] text-muted">{money(p.plan.priceMonthly)} a month</p> : null}
+              {p.plan ? <p className="mt-1 text-[13px] text-muted">{planMoney(p.plan.priceMonthly)} a month</p> : null}
             </div>
             {canEdit && p.plan ? (
               <div className="flex flex-wrap gap-2">
